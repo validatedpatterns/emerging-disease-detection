@@ -3,6 +3,7 @@ clusterGroup:
   isHubCluster: true
 
   namespaces:
+    - vault
     - sepsis-demo
     - openshift-serverless
 
@@ -23,6 +24,11 @@ clusterGroup:
    - sepsis-demo
 
   applications:
+    vault:
+      name: vault
+      namespace: vault
+      project: hub
+      path: common/hashicorp-vault
     sso:
       name: sso
       namespace: sepsis-demo
