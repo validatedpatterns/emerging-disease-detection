@@ -62,7 +62,11 @@ clusterGroup:
       - group: internal.open-cluster-management.io
         kind: ManagedClusterInfo
         jsonPointers:
-          - /spec/loggingCA          
+          - /spec/loggingCA
+      - group: apps.openshift.io
+        kind: DeploymentConfig
+        jqPathExpressions:
+        - '.spec.template.spec.containers[].image'              
 
   imperative:
     # NOTE: We *must* use lists and not hashes. As hashes lose ordering once parsed by helm
