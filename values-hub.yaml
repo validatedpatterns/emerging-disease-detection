@@ -98,6 +98,17 @@ clusterGroup:
         jqPathExpressions:
         - '.spec.template.spec.containers[].image' 
 
+    sepsisdetection-sse:
+      name: sepsisdetection-sse
+      namespace: sepsis-demo
+      project: sepsis-demo  
+      path: charts/all/sepsis-demo/sepsisdetection-sse
+      ignoreDifferences:
+      - group: apps.openshift.io
+        kind: DeploymentConfig
+        jqPathExpressions:
+        - '.spec.template.spec.containers[].image'
+
     sepsisdetection-ml:
       name: sepsisdetection-ml
       namespace: sepsis-demo
