@@ -96,7 +96,31 @@ clusterGroup:
       - group: apps.openshift.io
         kind: DeploymentConfig
         jqPathExpressions:
-        - '.spec.template.spec.containers[].image'               
+        - '.spec.template.spec.containers[].image' 
+
+    sepsisdetection-ml:
+      name: sepsisdetection-ml
+      namespace: sepsis-demo
+      project: sepsis-demo  
+      path: charts/all/sepsis-demo/sepsisdetection-ml
+      ignoreDifferences:
+      - group: apps.openshift.io
+        kind: DeploymentConfig
+        jqPathExpressions:
+        - '.spec.template.spec.containers[].image'
+
+    rhpam:
+      name: rhpam
+      namespace: sepsis-demo
+      project: sepsis-demo  
+      path: charts/all/sepsis-demo/rhpam  
+      ignoreDifferences:
+      - group: apps.openshift.io
+        kind: DeploymentConfig
+        jqPathExpressions:
+        - '.spec.template.spec.containers[].image'  
+
+
 
   imperative:
     # NOTE: We *must* use lists and not hashes. As hashes lose ordering once parsed by helm
