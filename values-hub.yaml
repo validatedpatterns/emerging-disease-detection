@@ -52,7 +52,17 @@ clusterGroup:
       - group: internal.open-cluster-management.io
         kind: ManagedClusterInfo
         jsonPointers:
-          - /spec/loggingCA    
+          - /spec/loggingCA   
+    fhir:
+      name: fhir
+      namespace: sepsis-demo
+      project: sepsis-demo  
+      path: charts/all/sepsis-demo/fhir-server
+      ignoreDifferences:
+      - group: internal.open-cluster-management.io
+        kind: ManagedClusterInfo
+        jsonPointers:
+          - /spec/loggingCA          
 
   imperative:
     # NOTE: We *must* use lists and not hashes. As hashes lose ordering once parsed by helm
