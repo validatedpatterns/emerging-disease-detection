@@ -21,14 +21,17 @@ clusterGroup:
         namespace: sepsis-demo
 
   projects:
+   - hub
    - sepsis-demo
 
   applications:
+
     vault:
       name: vault
       namespace: vault
       project: hub
       path: common/hashicorp-vault
+
     sso:
       name: sso
       namespace: sepsis-demo
@@ -39,6 +42,17 @@ clusterGroup:
         kind: ManagedClusterInfo
         jsonPointers:
           - /spec/loggingCA
+
+    kafka-cluster:
+      name: kafka-cluster
+      namespace: sepsis-demo
+      project: sepsis-demo
+      path: charts/all/sepsis-demo/kafka-cluster   
+      ignoreDifferences:
+      - group: internal.open-cluster-management.io
+        kind: ManagedClusterInfo
+        jsonPointers:
+          - /spec/loggingCA    
 
   imperative:
     # NOTE: We *must* use lists and not hashes. As hashes lose ordering once parsed by helm
