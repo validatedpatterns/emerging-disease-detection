@@ -41,10 +41,11 @@ clusterGroup:
     # imagePullPolicy is set to always: imperative.imagePullPolicy
     # For additional overrides that apply to the jobs, please refer to
     # https://hybrid-cloud-patterns.io/imperative-actions/#additional-job-customizations
+    image: quay.io/redhat_naps_da/ansible-execution-image-with-tools
     jobs:
-    - name: hello-world
+    - name: sso-realm
       # ansible playbook to be run
-      playbook: common/ansible/playbooks/hello-world/hello-world.yaml
+      playbook: common/ansible/playbooks/sso-realm/sso-realm.yaml
       # per playbook timeout in seconds
       timeout: 234
       # verbosity: "-v"
