@@ -38,10 +38,10 @@ clusterGroup:
       project: sepsis-demo
       path: charts/all/sepsis-demo/sso
       ignoreDifferences:
-      - group: internal.open-cluster-management.io
-        kind: ManagedClusterInfo
-        jsonPointers:
-          - /spec/loggingCA
+       - group: apps.openshift.io
+         kind: DeploymentConfig
+         jqPathExpressions:
+          - '.spec.template.spec.containers[].image'   
 
     kafka-cluster:
       name: kafka-cluster
@@ -49,24 +49,32 @@ clusterGroup:
       project: sepsis-demo
       path: charts/all/sepsis-demo/kafka-cluster   
       ignoreDifferences:
-      - group: internal.open-cluster-management.io
-        kind: ManagedClusterInfo
-        jsonPointers:
-          - /spec/loggingCA   
+       - group: apps.openshift.io
+         kind: DeploymentConfig
+         jqPathExpressions:
+          - '.spec.template.spec.containers[].image' 
+
     fhir:
       name: fhir
       namespace: sepsis-demo
       project: sepsis-demo  
       path: charts/all/sepsis-demo/fhir-server
       ignoreDifferences:
-      - group: internal.open-cluster-management.io
-        kind: ManagedClusterInfo
-        jsonPointers:
-          - /spec/loggingCA
       - group: apps.openshift.io
         kind: DeploymentConfig
         jqPathExpressions:
-        - '.spec.template.spec.containers[].image'              
+        - '.spec.template.spec.containers[].image'     
+
+    debezium:
+      name: debezium
+      namespace: sepsis-demo
+      project: sepsis-demo  
+      path: charts/all/sepsis-demo/debezium
+      ignoreDifferences:
+      - group: apps.openshift.io
+        kind: DeploymentConfig
+        jqPathExpressions:
+        - '.spec.template.spec.containers[].image'             
 
   imperative:
     # NOTE: We *must* use lists and not hashes. As hashes lose ordering once parsed by helm
