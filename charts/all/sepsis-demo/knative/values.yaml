@@ -1,0 +1,13 @@
+---
+project_name: sepsis-demo
+subscription:
+    name: serverless-operator
+    channel: stable
+knative:
+  kafka:
+      name: "sepsis-demo-knative-kafka"
+      operator_packagemanifest: knative-kafka-operator
+      subscription_starting_csv: ""
+      subscription_automatic_installplan_approval: false
+      subscription_name: knative-kafka-operator
+      operator_subscription_channel: alpha

@@ -1,0 +1,184 @@
+---
+kind: List
+apiVersion: v1
+namespace: {{.Values.namespace}} 
+items:
+  - kind: ServiceAccount
+    apiVersion: v1
+    metadata:
+       name: {{ .Values.fhirserver.applicationname }}
+       labels:
+            app: {{.Values.fhirserver.applicationname}}
+
+  - kind: RoleBinding     
+    apiVersion: rbac.authorization.k8s.io/v1
+    metadata:
+        name: {{ printf "%s-admin" .Values.fhirserver.applicationname }}
+        labels:
+            app: {{.Values.fhirserver.applicationname}}
+    roleRef:
+        apiGroup: rbac.authorization.k8s.io
+        kind: ClusterRole
+        name: admin
+    subjects:
+      - kind: ServiceAccount
+        name: {{ printf "%s-admin" .Values.fhirserver.applicationname }}
+        namespace: {{.Values.namespace}}    
+
+  - kind: ConfigMap
+    apiVersion: v1
+    metadata:
+        name: {{ .Values.fhirserver.configmap.name }}
+        labels:
+            app: {{.Values.fhirserver.applicationname}}
+    data:
+      application.yaml: |-
+        {{ range $lines := .Files.Lines .Values.fhirserver.configmap.application_file }}
+            {{- tpl $lines $ }} 
+        {{ end }}
+
+  - kind: ImageStream
+    apiVersion: image.openshift.io/v1
+    metadata:
+       name: {{ .Values.fhirserver.applicationname }}
+       labels:
+            app: {{.Values.fhirserver.applicationname}}
+    spec:
+       dockerImageRepository: {{ .Values.fhirserver.service_image }}
+
+  - kind: Service
+    apiVersion: v1
+    metadata:
+       name: {{ .Values.fhirserver.applicationname }}
+       labels:
+            app: {{.Values.fhirserver.applicationname}}
+            expose: "true"
+    spec:
+       ports:
+          - name: http
+            port: 8080
+            protocol: TCP
+            targetPort: 8080
+       selector:
+          group: fhir-server
+          app: {{.Values.fhirserver.applicationname}}
+       sessionAffinity: None
+       type: ClusterIP       
+
+  - kind: DeploymentConfig
+    apiVersion: apps.openshift.io/v1
+    metadata:
+       name: {{ .Values.fhirserver.applicationname }}
+       labels:
+            app: {{.Values.fhirserver.applicationname}}
+    spec:
+      triggers:
+        - type: ConfigChange
+        - imageChangeParams:
+            automatic: true
+            containerNames:
+              - {{.Values.fhirserver.applicationname}}
+            from:
+              kind: ImageStreamTag
+              name: "{{.Values.fhirserver.applicationname}}:{{ .Values.fhirserver.service_image_tag }}"
+          type: ImageChange        
+      replicas: 1
+      revisionHistoryLimit: 2
+      selector:
+        group: fhir-server
+        app: {{.Values.fhirserver.applicationname}}
+      strategy:  
+        activeDeadlineSeconds: 21600
+        resources: {}
+        rollingParams:
+          intervalSeconds: 1
+          maxSurge: 25%
+          maxUnavailable: 25%
+          timeoutSeconds: 3600
+          updatePeriodSeconds: 1 
+        type: Rolling 
+      template:
+        metadata:
+          labels:
+            group: fhir-server
+            app: {{.Values.fhirserver.applicationname}}    
+        spec:
+            containers:
+            - env:
+              - name: JAVA_MAX_MEM_RATIO
+                value: "{{ .Values.fhirserver.fhirserver_java_max_mem_ratio }}"
+              - name: JAVA_INITIAL_MEM_RATIO
+                value: "{{ .Values.fhirserver.fhirserver_java_initial_mem_ratio }}"
+              - name: GC_MAX_METASPACE_SIZE
+                value: "{{ .Values.fhirserver.fhirserver_gc_max_metaspace_size }}"
+              - name: KUBERNETES_NAMESPACE
+                valueFrom:
+                  fieldRef:
+                    apiVersion: v1
+                    fieldPath: metadata.namespace
+              - name: SPRING_CONFIG_LOCATION
+                value: file:///deployments/config/{{ .Values.fhirserver.application_configmap_key }}  
+              imagePullPolicy: IfNotPresent
+              name: {{ .Values.fhirserver.applicationname }}  
+              livenessProbe:
+                failureThreshold: 3
+                httpGet:
+                  path: /fhir/TerminologyCapabilities
+                  port: 8080
+                  scheme: HTTP
+                initialDelaySeconds: 30
+                periodSeconds: 60
+                timeoutSeconds: 3
+              readinessProbe:
+                failureThreshold: 3
+                httpGet:
+                  path: /fhir/TerminologyCapabilities
+                  port: 8080
+                  scheme: HTTP
+                initialDelaySeconds: 30
+                periodSeconds: 60
+                timeoutSeconds: 3
+              resources:
+                limits:
+                  cpu: '1000m'
+                  memory: '2Gi'
+                requests:
+                  cpu: '250m'
+                  memory: '250Mi'
+              securityContext:
+                privileged: false
+              terminationMessagePath: /dev/termination-log
+              terminationMessagePolicy: File
+              volumeMounts:
+              - mountPath: /deployments/config
+                name: config        
+            dnsPolicy: ClusterFirst
+            restartPolicy: Always
+            schedulerName: default-scheduler
+            securityContext: {}
+            serviceAccount: {{ .Values.fhirserver.applicationname }}
+            serviceAccountName: {{ .Values.fhirserver.applicationname }}
+            terminationGracePeriodSeconds: 30
+            volumes:
+            - configMap:
+                defaultMode: 420
+                items:
+                  - key: {{ .Values.fhirserver.application_configmap_key }}
+                    path: {{ .Values.fhirserver.application_configmap_key }}
+                name: {{ .Values.fhirserver.configmap.name }}
+              name: config
+  
+  - kind : Route  
+    apiVersion: route.openshift.io/v1
+    metadata:
+      name: {{ .Values.fhirserver.applicationname }}
+    spec:
+      host: {{ .Values.fhirserver.applicationname }}-{{.Values.namespace}}.{{.Values.global.hubClusterDomain}}
+      port:
+        targetPort: http
+      tls:
+        termination: edge
+      to:
+        kind: Service
+        name: {{ .Values.fhirserver.applicationname }}
+      wildcardPolicy: None

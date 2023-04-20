@@ -1,0 +1,20 @@
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  name: {{ .Values.debezium.name }}
+  labels:
+    strimzi.io/cluster: kafka-connect 
+spec:
+  class: 'io.debezium.connector.postgresql.PostgresConnector'
+  tasksMax: {{ .Values.debezium.tasks_max }}
+  config:
+    plugin.name: pgoutput
+    database.hostname: '{{ printf "%s.%s.svc" .Values.database.hapi.psql_app_name  .Values.project_name }}'
+    database.port: '{{ .Values.database.hapi.psql_port }}'
+    database.user: {{ .Values.database.hapi.psql_user_name }}
+    database.password: '{{.Values.database.hapi.psql_user_passwd }}'
+    database.dbname: {{ .Values.database.hapi.psql_db_name }}
+    database.server.name: {{ .Values.debezium.db_server_name }}
+    schema.include.list: {{ .Values.debezium.schema_whitelist }}
+    table.include.list: {{ .Values.debezium.table_whitelist }}
+    value.converter: io.debezium.converters.CloudEventsConverter

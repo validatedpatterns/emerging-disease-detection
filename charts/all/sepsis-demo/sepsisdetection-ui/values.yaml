@@ -1,0 +1,25 @@
+namespace: sepsis-demo
+project_name: sepsis-demo
+application_name: sepsisdetection-ui
+image_name: "quay.io/redhat_naps_da/sepsisdetection-ui"
+image_tag: 0.0.20-sse
+application_properties: application.properties
+application_configmap: sepsisdetection-ui
+application_configmap_key: application.properties
+configmap:
+   envjs: properties/env.js
+
+fhir_server_application_name: fhir-server
+sso_realm_id: user1-sepsis
+sso_clientId: sepsisdetection
+
+sepsisdetection_sse_hostname: sepsisdetection-sse
+fhir_server_application_hostname: "{{ fhir_server_application_name }}-{{ project_name }}.{{ .Values.global.hubClusterDomain }}"
+sso_url: "https://sso-sepsis-demo"
+patient_viewer_url: "https://demo.healthflow.io/profile/5e3ad7fe-24fa-4dc2-8be5-25554a8efb2c"
+
+sepsisdetection_rhpam_app_name: sepsisdetection-rhpam
+sepsisdetection_rhpam_api_passwd: kieserver
+sepsisdetection_rhpam_deployment_name: sepsisdetection-kjar
+sepsisdetection_rhpam_deployment_version: 1.0.0
+sepsisdetection_rhpam_process_id: sepsisdetection

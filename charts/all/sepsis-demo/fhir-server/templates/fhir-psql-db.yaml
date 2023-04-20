@@ -1,0 +1,123 @@
+kind: DeploymentConfig
+apiVersion: apps.openshift.io/v1
+metadata:
+  name: {{ .Values.plsql.psql_app_name }}
+  labels:
+    app: {{ .Values.plsql.psql_app_name }}
+    app.kubernetes.io/part-of: datatier
+spec:
+  strategy:
+    recreateParams:
+      post:
+        execNewPod:
+          command:
+          - /bin/bash
+          - /tmp/init-files/wait_for_postgresql.sh
+          - /tmp/init-files/create_database.sh
+          containerName: postgresql
+          volumes:
+          - init-volume
+        failurePolicy: Abort
+      timeoutSeconds: 60
+    resources: {}
+    type: Recreate
+  triggers:
+  - type: ImageChange
+    imageChangeParams:
+        automatic: true
+        containerNames:
+        - postgresql
+        from:
+          kind: ImageStreamTag
+          name: postgresql:{{ .Values.plsql.postgresql_version }}
+          namespace: {{ .Values.namespace_postgres }}
+        
+  - type: ConfigChange
+  replicas: 1
+  selector:
+    name: {{ .Values.plsql.psql_app_name }}
+  template:
+    metadata:
+      labels:
+        name: {{ .Values.plsql.psql_app_name }}
+        app: {{ .Values.plsql.psql_app_name }}
+    spec:
+      serviceAccountName: {{ .Values.plsql.postgresql_service_account }}
+      containers:
+      - name: postgresql
+        image: " "
+        ports:
+            - containerPort: 5432
+              protocol: TCP
+        readinessProbe:
+            timeoutSeconds: 1
+            initialDelaySeconds: 5
+            exec:
+              command:
+                - "/bin/sh"
+                - "-i"
+                - "-c"
+                - psql -h 127.0.0.1 -U {{.Values.plsql.psql_user_name }} -q -d {{.Values.plsql.psql_db_name }} -c
+                  'SELECT 1'
+        livenessProbe:
+            timeoutSeconds: 1
+            initialDelaySeconds: 30
+            tcpSocket:
+              port: 5432
+        env:
+            - name: POSTGRESQL_ADMIN_PASSWORD
+              value: admin
+            - name: POSTGRESQL_USER
+              valueFrom:
+                secretKeyRef:
+                    name: {{ .Values.plsql.psql_app_name }}
+                    key: database-user
+            - name: POSTGRESQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                    name: {{ .Values.plsql.psql_app_name }}
+                    key: database-password
+            - name: POSTGRESQL_DATABASE
+              valueFrom:
+                secretKeyRef:
+                    name: {{ .Values.plsql.psql_app_name }}
+                    key: database-name
+            - name: POSTGRESQL_SERVICE
+              value: {{ .Values.plsql.psql_app_name }}
+            - name: POSTGRESQL_MAX_PREPARED_TRANSACTIONS
+              value: "{{.Values.plsql.postgresql_max_prepared_transactions}}"
+            - name: POSTGRESQL_MAX_CONNECTIONS
+              value: "{{.Values.plsql.postgresql_max_connections}}"
+        resources:
+            requests:
+              cpu: {{ .Values.plsql.postgresql_cpu_request }}
+              memory: {{ .Values.plsql.postgresql_memory_request }}
+            limits:
+              cpu: {{ .Values.plsql.postgresql_cpu_limit }}
+              memory: {{ .Values.plsql.postgresql_memory_limit }}
+        volumeMounts:
+            - name: {{ printf "%s-data" .Values.plsql.psql_app_name }}
+              mountPath: "/var/lib/pgsql/data"
+            - name: init-volume
+              mountPath: /tmp/init-files
+            - name: {{ .Values.configmap.debezium_configmap.name }}
+              mountPath: "/opt/app-root/src/postgresql-cfg/"
+        terminationMessagePath: "/dev/termination-log"
+        imagePullPolicy: IfNotPresent
+        securityContext:
+            capabilities: {}
+            privileged: false
+      volumes:
+      - name: {{ printf "%s-data" .Values.plsql.psql_app_name }}
+        persistentVolumeClaim:
+            claimName: {{ .Values.plsql.psql_app_name }}
+      - configMap:
+          defaultMode: 493
+          name: {{ .Values.configmap.postgres_configmap.name }}
+        name: init-volume
+      - configMap:
+          defaultMode: 493
+          name: {{ .Values.configmap.debezium_configmap.name }}
+        name: {{ .Values.configmap.debezium_configmap.name }}
+      restartPolicy: Always
+      dnsPolicy: ClusterFirst

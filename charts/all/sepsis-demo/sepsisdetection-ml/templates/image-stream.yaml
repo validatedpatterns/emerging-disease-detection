@@ -1,0 +1,13 @@
+kind: ImageStream
+apiVersion: image.openshift.io/v1
+metadata:
+  name: {{ .Values.application.name }}
+spec:
+  tags:
+    - name: latest
+      from:
+        kind: DockerImage
+        name: {{ .Values.application.image.name }}
+      importPolicy: {}
+      referencePolicy:
+        type: Source

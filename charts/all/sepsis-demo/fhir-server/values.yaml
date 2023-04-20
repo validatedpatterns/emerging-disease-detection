@@ -1,0 +1,53 @@
+namespace: sepsis-demo
+namespace_postgres: openshift
+
+sepsisdetection:
+   sepsisdetection_ui_app_name: sepsisdetection-ui
+   sepsisdetection_rhpam_app_name: sepsisdetection-rhpam
+   sepsisdetection_rhpam_api_passwd: kieserver
+   sepsisdetection_rhpam_deployment_name: sepsisdetection-kjar
+   sepsisdetection_rhpam_deployment_version: 1.0.0
+   sepsisdetection_rhpam_process_id: sepsisdetection
+
+fhirserver:
+   applicationname: fhir-server
+   service_image: quay.io/redhat_naps_da/hapi-fhir-jpaserver-starter-ocp
+   service_image_tag: v5.3.0-psql-bytea-1
+   fhirserver_java_max_mem_ratio: 60
+   fhirserver_java_initial_mem_ratio: 0
+   fhirserver_gc_max_metaspace_size: 500
+   application_configmap_key: application.yaml
+   configmap:
+       name: fhir-server-cm
+       application_file: properties/application.yaml
+
+plsql:
+  psql_app_name: psql-fhir
+  psql_credentials_secret: psql-secret
+  postgresql_pv_capacity: 5Gi
+  postgresql_service_account: fhir-service-user
+  psql_port: 5432
+  psql_user_name: fhir
+  psql_user_passwd: fhir
+  psql_db_name: fhir
+  postgresql_max_prepared_transactions: 100
+  postgresql_max_connections: 100
+  postgresql_init_configmap: psql-fhir-init
+  postgresql_memory_limit: 512Mi
+  postgresql_cpu_limit: 500m
+  postgresql_memory_request: 256Mi
+  postgresql_cpu_request: 100m
+  psql_init_scripts:
+  undeploy_fhir_db: "true"
+  postgresql_version: 12-el8
+  hapi_psql_debezium_conf_name: hapi-psql-debezium-conf
+  hapi_psql_debezium_conf_file: "{{ hapi_psql_debezium_conf_name }}.conf"
+  
+configmap:
+  postgres_configmap:
+    name : fhir-postgres-cm
+    create_db_file: sql/create_database.sh
+    wait_for_psql_file: sql/wait_for_postgresql.sh
+  debezium_configmap:
+    name : fhir-debezium-cm  
+    d_conf_file: sql/hapi-psql-debezium-conf.conf

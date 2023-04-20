@@ -1,0 +1,207 @@
+---
+kind: List
+apiVersion: v1
+namespace: {{.Values.namespace}} 
+items:
+  - apiVersion: v1
+    kind: ServiceAccount
+    metadata:
+      name: "{{ .Values.postgresql.service_account }}"
+      namespace: "{{ .Values.namespace }}"
+
+  - apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: "{{ .Values.postgresql_init_configmap }}"
+      namespace: "{{ .Values.namespace }}"
+    data:
+      create_database.sh: |-
+          {{ range .Files.Lines .Values.configmap.postgres_configmap.create_db_file }}
+              {{ . }}
+          {{ end }}
+      postgresql-jbpm-lo-trigger-clob.sql: |-
+          {{ range .Files.Lines .Values.configmap.postgres_configmap.jbpm_lo_trigger_clob }}
+              {{ . }}
+          {{ end }}
+      postgresql-springboot-jbpm-schema.sql: |-
+          {{ range .Files.Lines .Values.configmap.postgres_configmap.springboot_jbpm_schema }}
+              {{ . }}
+          {{ end }}
+      quartz_tables_postgres.sql: |-
+          {{ range .Files.Lines .Values.configmap.postgres_configmap.quartz_tables_postgres }}
+              {{ . }}
+          {{ end }}
+      task_assigning_tables_postgresql.sql: |-
+          {{ range .Files.Lines .Values.configmap.postgres_configmap.task_assigning_tables }}
+              {{ . }}
+          {{ end }}
+      wait_for_postgresql.sh: |-
+          {{ range .Files.Lines .Values.configmap.postgres_configmap.wait_for_postgresql }}
+              {{ . }}
+          {{ end }}
+
+  - apiVersion: v1
+    kind: Secret
+    metadata:
+      name: {{ .Values.rhpam.psql_app_name }}
+      namespace: {{ .Values.namespace }}
+    type: Opaque
+    data: 
+      database-user: {{ .Values.rhpam.psql_user_name  | b64enc}}
+      database-password: {{ .Values.rhpam.psql_passwd | b64enc }}
+      database-name: {{ .Values.rhpam.psql_db_name  | b64enc}}
+  
+  - kind: Service
+    apiVersion: v1
+    metadata:
+      name: {{ .Values.rhpam.psql_app_name }}
+      annotations:
+        template.openshift.io/expose-uri: postgres://{.spec.clusterIP}:{.spec.ports[?(.name=="postgresql")].port}
+      labels:
+        app: {{ .Values.rhpam.psql_app_name }}
+    spec:
+      ports:
+      - name: postgresql
+        protocol: TCP
+        port: 5432
+        targetPort: 5432
+        nodePort: 0
+      selector:
+        name: {{ .Values.rhpam.psql_app_name }}
+      type: ClusterIP
+      sessionAffinity: None
+    status:
+      loadBalancer: {}
+
+  - kind: PersistentVolumeClaim
+    apiVersion: v1
+    metadata:
+      name: {{ .Values.rhpam.psql_app_name }}
+      labels:
+        app: {{ .Values.rhpam.psql_app_name }}
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: {{ .Values.postgresql.pv_capacity }}
+
+           
+  - kind: DeploymentConfig
+    apiVersion: apps.openshift.io/v1
+    metadata:
+      name: {{ .Values.rhpam.psql_app_name }}
+      labels:
+        app: {{ .Values.rhpam.psql_app_name }}
+        app.kubernetes.io/part-of: datatier
+    spec:
+      strategy:
+        recreateParams:
+          post:
+            execNewPod:
+              command: 
+              - /bin/bash
+              - /tmp/init-files/wait_for_postgresql.sh
+              - /tmp/init-files/create_database.sh
+              containerName: postgresql
+              volumes:
+              - init-volume
+            failurePolicy: Abort
+          timeoutSeconds: 600
+        resources: {}
+        type: Recreate
+      triggers:
+      - type: ImageChange
+        imageChangeParams:
+          automatic: true
+          containerNames:
+          - postgresql
+          from:
+            kind: ImageStreamTag
+            name: postgresql:{{ .Values.postgresql.version }}
+            namespace: "{{ .Values.postgresql.is_namespace }}"
+          lastTriggeredImage: ''
+      - type: ConfigChange
+      replicas: 1
+      selector:
+        name: {{ .Values.rhpam.psql_app_name }}
+      template:
+        metadata:
+          labels:
+            name: {{ .Values.rhpam.psql_app_name }}
+            app: {{ .Values.rhpam.psql_app_name }}
+        spec:
+          serviceAccountName: "{{ .Values.postgresql.service_account }}"
+          containers:
+          - name: postgresql
+            image: " "
+            ports:
+            - containerPort: 5432
+              protocol: TCP
+            readinessProbe:
+              timeoutSeconds: 1
+              initialDelaySeconds: 5
+              exec:
+                command:
+                - "/bin/sh"
+                - "-i"
+                - "-c"
+                - psql -h 127.0.0.1 -U {{ .Values.rhpam.psql_user_name }} -q -d {{ .Values.rhpam.psql_db_name }} -c
+                  'SELECT 1'
+            livenessProbe:
+              timeoutSeconds: 1
+              initialDelaySeconds: 30
+              tcpSocket:
+                port: 5432
+            env:
+            - name: POSTGRESQL_USER
+              valueFrom:
+                secretKeyRef:
+                  name:  {{ .Values.rhpam.psql_app_name }} 
+                  key: database-user
+            - name: POSTGRESQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name:  {{ .Values.rhpam.psql_app_name }} 
+                  key: database-password
+            - name: POSTGRESQL_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.rhpam.psql_app_name }} 
+                  key: database-name
+            - name: POSTGRESQL_SERVICE
+              value: {{ .Values.rhpam.psql_app_name }}
+            - name: POSTGRESQL_MAX_PREPARED_TRANSACTIONS
+              value: "{{ .Values.postgresql.max_prepared_transactions }}"
+            - name: POSTGRESQL_MAX_CONNECTIONS
+              value: "{{ .Values.postgresql.max_connections }}"
+            resources:
+              requests:
+                cpu: '{{ .Values.postgresql.cpu_request }}'
+                memory: '{{.Values.postgresql.memory_request }}'
+              limits:
+                cpu: '{{.Values.postgresql.cpu_limit }}'
+                memory: '{{.Values.postgresql.memory_limit }}'
+            volumeMounts:
+            - name: "{{ .Values.rhpam.psql_app_name }}-data"
+              mountPath: "/var/lib/pgsql/data"
+            - name: init-volume
+              mountPath: /tmp/init-files
+            terminationMessagePath: "/dev/termination-log"
+            imagePullPolicy: IfNotPresent
+            securityContext:
+              capabilities: {}
+              privileged: false
+          volumes:
+          - name: "{{ .Values.rhpam.psql_app_name }}-data"
+            persistentVolumeClaim:
+              claimName: "{{ .Values.rhpam.psql_app_name }}"
+          - configMap:
+              defaultMode: 493
+              name: {{ .Values.postgresql_init_configmap }}
+            name: init-volume
+          restartPolicy: Always
+          dnsPolicy: ClusterFirst
+
+
+  

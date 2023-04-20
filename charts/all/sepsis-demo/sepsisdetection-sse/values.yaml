@@ -1,0 +1,16 @@
+namespace: sepsis-demo
+application_name: sepsisdetection-sse
+service_account: sepsisdetection-sse
+application_properties: application.properties
+application_configmap: sepsisdetection-sse
+application_configmap_key: application.properties
+binary_imagestream_template: binary-imagestream.yml 
+service_image: quay.io/redhat_naps_da/sepsisdetection-sse
+service_image_tag: 0.0.3
+kafka_bootstrap_address: kafka-cluster-kafka-bootstrap.sepsis-demo.svc.cluster.local:9092
+configmap:
+   applproperties: properties/application.properties
+add_scc_sa_accounts:
+  - sepsisdetection-risk
+  - sepsisdetection-rhpam
+  - sepsisdetection-sse   

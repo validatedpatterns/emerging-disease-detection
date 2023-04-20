@@ -1,0 +1,93 @@
+namespace: sepsis-demo
+postgresql_init_configmap: psql-rhpam-init
+
+rhpam:
+  psql_app_name: psql-rhpam
+  psql_user_name: rhpam
+  psql_passwd: rhpam
+  psql_db_name: rhpam
+
+postgresql:
+   service_account: psql-rhpam
+   pv_capacity: 5Gi 
+   version: 12-el8
+   is_namespace: openshift
+   memory_limit: 512Mi
+   cpu_limit: 1
+   memory_request: 256Mi
+   cpu_request: 100m
+   max_prepared_transactions: 100
+   max_connections: 100
+
+configmap:
+   postgres_configmap:
+       create_db_file : sql/create_database.sh
+       jbpm_lo_trigger_clob: sql/postgresql-jbpm-lo-trigger-clob.sql
+       springboot_jbpm_schema: sql/postgresql-springboot-jbpm-schema.sql
+       quartz_tables_postgres: sql/quartz_tables_postgres.sql
+       task_assigning_tables: sql/task_assigning_tables_postgresql.sql
+       wait_for_postgresql: sql/wait_for_postgresql.sh
+   application_configmap:
+       application: properties/application.properties
+       jbpm_quartz: properties/jbpm-quartz.properties
+       logback_spring: properties/logback-spring.xml
+       sepsisdetection_rhpam: properties/sepsisdetection-rhpam.xml
+
+
+quartz_clustered: false
+service_account: sepsisdetection-rhpam
+application_name: sepsisdetection-rhpam
+application_configmap: sepsisdetection-rhpam
+
+sepsisdetection:
+   rhpam_app_name: sepsisdetection-rhpam
+   rhpam_api_passwd: kieserver
+   rhpam_deployment_name: sepsisdetection-kjar
+   rhpam_deployment_version: 1.0.0
+   rhpam_process_id: sepsisdetection
+
+kafka_bootstrap_address: kafka-cluster-kafka-bootstrap.sepsis-demo.svc.cluster.local:9092
+
+# Topic that Debezium will stream to and triggers BPM process
+kafka_debezium_topic: "fhir.public.hfj_res_ver"
+
+kie_server_repo_path: /deployments/config
+kie_admin_user: admin
+kie_admin_password: user
+kieserver_user_password: kieserver
+kie_deployment_name: "sepsisdetection-kjar"
+kie_deployment_version: "1.0.0"
+kie_process_id: sepsisdetection
+fhir_server_url: "http://fhir-server:8080"
+nexus_mirror: ""
+
+
+project_admin: user1
+# Name of the OCP project to deploy this application to
+project_name: "user1-sepsisdetection"
+
+# Namespace where SSO will be installed
+namespace_sso: sepsisdetection-sso
+sso_siteadmin_password: r3dh4t1!
+
+# If set to True, then every user that creates an account in demo will automatically be a "realm-admin"
+sso_url: sso-sepsis-demo
+set_realm_admin_as_default: false
+sso_realm_id: "user1-sepsis"
+sso_clientId: sepsisdetection
+
+fhir_server_application_name: fhir-server
+sepsis_detection_ml_app_name: sepsis-detection
+sepsisdetection_ui_app_name: sepsisdetection-ui
+patient_viewer_url: "https://demo.healthflow.io/profile/5e3ad7fe-24fa-4dc2-8be5-25554a8efb2c"
+sepsisdetection_sse_app_name: sepsisdetection-sse
+
+service_image: quay.io/redhat_naps_da/sepsisdetection-rhpam
+service_image_tag: 0.0.13
+
+sepsisdetection_rhpam_java_max_mem_ratio: 60
+sepsisdetection_rhpam_java_initial_mem_ratio: 0
+sepsisdetection_rhpam_gc_max_metaspace_size: 500
+application_configmap_key: application.properties
+
+

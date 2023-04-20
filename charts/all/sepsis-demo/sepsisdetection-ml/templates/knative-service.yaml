@@ -1,0 +1,44 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  annotations:
+    image.openshift.io/triggers: >-
+      [{"from":{"kind":"ImageStreamTag","name":"sepsis-detection:latest","namespace":"sepsis-detection"},"fieldPath":"spec.template.spec.containers[?(@.name==\"sepsis-detection\")].image","pause":"false"}]
+  name: sepsis-detection
+  labels:
+    app.kubernetes.io/component: {{ .Values.application.name }}
+    app.kubernetes.io/instance: {{ .Values.application.name }}
+    app.kubernetes.io/name: {{ .Values.application.name }}
+    app.kubernetes.io/part-of: {{ .Values.application.name }}-app
+    app.openshift.io/runtime: python
+    app.openshift.io/runtime-version: latest
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/minScale: '{{ .Values.application.knative.min }}'
+        autoscaling.knative.dev/maxScale: '{{ .Values.application.knative.max }}'
+      labels:
+        app.kubernetes.io/component: {{ .Values.application.name }}
+        app.kubernetes.io/instance: {{ .Values.application.name }}
+        app.kubernetes.io/name: {{ .Values.application.name }}
+        app.kubernetes.io/part-of: {{ .Values.application.name }}-app
+        app.openshift.io/runtime: python
+        app.openshift.io/runtime-version: latest
+    spec:
+      containers:
+        - image: {{ .Values.application.image.name }}
+          imagePullPolicy: Always
+          name: sepsis-detection
+          ports:
+            - containerPort: {{ .Values.application.port }}
+          readinessProbe:
+            successThreshold: 1
+            tcpSocket:
+              port: 0
+          resources: {}
+      enableServiceLinks: false
+      timeoutSeconds: 300
+  traffic:
+    - latestRevision: true
+      percent: 100
