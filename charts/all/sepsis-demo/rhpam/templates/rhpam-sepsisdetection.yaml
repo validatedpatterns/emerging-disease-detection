@@ -97,7 +97,7 @@ items:
               timeoutSeconds: 3
             resources:
               limits:
-                cpu: '1000m'
+                cpu: '1'
                 memory: '2Gi'
               requests:
                 cpu: '250m'
