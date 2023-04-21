@@ -2,7 +2,7 @@ apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
   annotations:
-    argocd.argoproj.io/synchronization: Exclude
+    argocd.argoproj.io/sync-options: Prune=false
     image.openshift.io/triggers: >-
       [{"from":{"kind":"ImageStreamTag","name":"sepsis-detection:latest","namespace":"sepsis-detection"},"fieldPath":"spec.template.spec.containers[?(@.name==\"sepsis-detection\")].image","pause":"false"}]
   name: sepsis-detection
