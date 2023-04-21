@@ -1,6 +1,7 @@
 ---
 global:
   pattern: multicloud-gitops
+  hubClusterDomain: "AUTO" # this is for test only This value is automatically fetched when Invoking against a cluster
 
   options:
     useCSV: false
