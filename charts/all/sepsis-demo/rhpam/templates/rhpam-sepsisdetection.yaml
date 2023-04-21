@@ -70,7 +70,8 @@ items:
             - name: JAVA_OPTS_APPEND
               value: '-Dorg.kie.server.repo={{ .Values.kie_server_repo_path }} -Dkie.maven.settings.custom=/m2/settings.xml'
 
-            
+            - name: MAVEN_MIRROR_URL
+              value: "{{ .Values.nexus_mirror }}"
             imagePullPolicy: IfNotPresent
             name: {{ .Values.application_name }}
             livenessProbe:
