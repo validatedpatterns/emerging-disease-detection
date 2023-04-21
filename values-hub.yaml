@@ -125,13 +125,14 @@ clusterGroup:
       namespace: sepsis-demo
       project: sepsis-demo  
       path: charts/all/sepsis-demo/sepsisdetection-ml
+      syncPolicy:
+        syncOptions:
+           - Prune=false
       ignoreDifferences:
       - group: apps.openshift.io
         kind: DeploymentConfig
         jqPathExpressions:
         - '.spec.template.spec.containers[].image'
-      - group: route.openshift.io
-        kind: Route
 
     rhpam:
       name: rhpam
