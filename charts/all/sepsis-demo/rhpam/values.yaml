@@ -1,6 +1,12 @@
 namespace: sepsis-demo
 postgresql_init_configmap: psql-rhpam-init
 
+#Added the cluster Domain for make test to pass
+global:
+  hubClusterDomain: hub.example.com
+  localClusterDomain: region-one.example.com
+
+
 rhpam:
   psql_app_name: psql-rhpam
   psql_user_name: rhpam

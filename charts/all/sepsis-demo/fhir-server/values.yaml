@@ -1,6 +1,12 @@
 namespace: sepsis-demo
 namespace_postgres: openshift
 
+#Added the cluster Domain for make test to pass
+global:
+  hubClusterDomain: hub.example.com
+  localClusterDomain: region-one.example.com
+
+
 sepsisdetection:
    sepsisdetection_ui_app_name: sepsisdetection-ui
    sepsisdetection_rhpam_app_name: sepsisdetection-rhpam

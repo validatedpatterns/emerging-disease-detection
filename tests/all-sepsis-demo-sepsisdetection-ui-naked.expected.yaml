@@ -1,0 +1,169 @@
+---
+# Source: sepsisdetection-ui/templates/sepsisdetection-ui-dependencies.yaml
+kind: List
+apiVersion: v1
+namespace: sepsis-demo 
+items:
+    - apiVersion: v1
+      kind: ServiceAccount
+      metadata:
+        name: "sepsisdetection-ui"
+        namespace: "sepsis-demo"
+
+    - apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: "sepsisdetection-ui"
+      data:
+        env.js: |-
+                  // blank values are replaced at runtime by the set-config.js node script
+                  (function(window) {
+                  window._env = window._env || {};
+                  
+                  window._env.KEYCLOAK_URL = "https://sso-sepsis-demo.hub.example.com";
+                  window._env.SSO_REALM = "user1-sepsis";
+                  window._env.SSO_CLIENT = "sepsisdetection";
+                  window._env.KIE_SERVER_URL = "https://sepsisdetection-rhpam-sepsis-demo.hub.example.com";
+                  window._env.KIE_SERVER_USERID = "kieserver";
+                  window._env.KIE_SERVER_PASSWORD = "kieserver";
+                  window._env.DM_CONTAINER_ALIAS = "";
+                  window._env.PAM_CONTAINER_ALIAS = "sepsisdetection-kjar-1.0.0";
+                  window._env.PROCESS_ID = "sepsisdetection";
+                  
+                  // CORS is enabled only on the fhir context-path
+                  window._env.FHIR_SERVER_URL = "https://fhir-server-sepsis-demo.hub.example.com/fhir";
+                  
+                  window._env.FHIR_SSE_STREAMING_URL = 'https://sepsisdetection-sse-sepsis-demo.hub.example.com';
+                  
+                  window._env.PATIENT_VIEWER_URL = "https://demo.healthflow.io/profile/5e3ad7fe-24fa-4dc2-8be5-25554a8efb2c";
+                  window._env.IS_OPENSHIFT = "true";
+                  })(this);
+                  
+            
+
+
+    - apiVersion: image.openshift.io/v1
+      kind: ImageStream
+      metadata:
+          name: sepsisdetection-ui
+          labels:
+             app: sepsisdetection-ui
+      spec:
+          dockerImageRepository: quay.io/redhat_naps_da/sepsisdetection-ui
+---
+# Source: sepsisdetection-ui/templates/sepsisdetection_ui.yml
+kind: List
+apiVersion: v1
+items:
+- apiVersion: route.openshift.io/v1
+  kind: Route
+  metadata:
+    labels:
+      app: sepsisdetection-ui
+    name: sepsisdetection-ui
+  spec:
+    port:
+      targetPort: http
+    tls:
+      termination: edge
+    to:
+      kind: Service
+      name: sepsisdetection-ui
+    wildcardPolicy: None
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: sepsisdetection-ui
+    labels:
+      expose: "true"
+      app: sepsisdetection-ui
+  spec:
+    ports:
+      - name: http
+        port: 8080
+        protocol: TCP
+        targetPort: 7080
+    selector:
+      group: sepsisdetection
+      app: sepsisdetection-ui
+    sessionAffinity: None
+    type: ClusterIP
+- apiVersion: apps.openshift.io/v1
+  kind: DeploymentConfig
+  metadata:
+    labels:
+      app: sepsisdetection-ui
+    name: sepsisdetection-ui
+  spec:
+    replicas: 1
+    selector:
+      group: sepsisdetection
+      app: sepsisdetection-ui
+    strategy:
+      activeDeadlineSeconds: 21600
+      resources: {}
+      rollingParams:
+        intervalSeconds: 1
+        maxSurge: 25%
+        maxUnavailable: 25%
+        timeoutSeconds: 3600
+        updatePeriodSeconds: 1
+      type: Rolling
+    template:
+      metadata:
+        labels:
+          group: sepsisdetection
+          app: sepsisdetection-ui
+      spec:
+        containers:
+          - image: quay.io/redhat_naps_da/sepsisdetection-ui:0.0.20-sse
+            name: sepsisdetection-ui
+            ports:
+            - containerPort: 7080
+            livenessProbe:
+              failureThreshold: 3
+              httpGet:
+                path: /
+                port: 7080
+                scheme: HTTP
+              initialDelaySeconds: 30
+              periodSeconds: 30
+              timeoutSeconds: 3
+            readinessProbe:
+              failureThreshold: 3
+              httpGet:
+                path: /
+                port: 7080
+                scheme: HTTP
+              initialDelaySeconds: 30
+              periodSeconds: 30
+              timeoutSeconds: 3
+            resources:
+              limits:
+                memory: "1Gi"
+                cpu: "500m"
+            volumeMounts:
+            - name: env
+              mountPath: /opt/app-root/src/assets/js/env.js
+              subPath: env.js
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        serviceAccount: sepsisdetection-ui
+        serviceAccountName: sepsisdetection-ui
+        terminationGracePeriodSeconds: 30
+        volumes:
+        - configMap:
+            name: sepsisdetection-ui
+          name: env
+    triggers:
+      - type: ConfigChange
+      - imageChangeParams:
+          automatic: true
+          containerNames:
+            - sepsisdetection-ui
+          from:
+            kind: ImageStreamTag
+            name: "sepsisdetection-ui:0.0.20-sse"
+        type: ImageChange

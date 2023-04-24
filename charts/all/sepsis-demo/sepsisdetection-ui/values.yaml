@@ -1,3 +1,8 @@
+#Added the cluster Domain for make test to pass
+global:
+  hubClusterDomain: hub.example.com
+  localClusterDomain: region-one.example.com
+
 namespace: sepsis-demo
 project_name: sepsis-demo
 application_name: sepsisdetection-ui

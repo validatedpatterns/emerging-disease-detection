@@ -1,0 +1,29 @@
+---
+# Source: knative/templates/knative-eventing.yaml
+apiVersion: operator.knative.dev/v1alpha1
+kind: KnativeEventing
+metadata:
+    name: knative-eventing
+    namespace: knative-eventing
+---
+# Source: knative/templates/knative-kafka.yaml
+# This custom resource triggers the installation of the Knative Kafka components, and enables the Knative Kafka eventing source and channel.
+
+apiVersion: operator.serverless.openshift.io/v1alpha1
+kind: KnativeKafka
+metadata:
+  name: sepsis-demo-knative-kafka
+  namespace: knative-eventing
+spec:
+  channel:
+    bootstrapServers: kafka-cluster-kafka-bootstrap.sepsis-demo:9092
+    enabled: true
+  source:
+    enabled: true
+---
+# Source: knative/templates/knative-serving.yaml
+apiVersion: operator.knative.dev/v1alpha1
+kind: KnativeServing
+metadata:
+    name: knative-serving
+    namespace: knative-serving

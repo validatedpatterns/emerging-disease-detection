@@ -1,0 +1,629 @@
+---
+# Source: fhir-server/templates/fhir-psql-db.yaml
+kind: DeploymentConfig
+apiVersion: apps.openshift.io/v1
+metadata:
+  name: psql-fhir
+  labels:
+    app: psql-fhir
+    app.kubernetes.io/part-of: datatier
+spec:
+  strategy:
+    recreateParams:
+      post:
+        execNewPod:
+          command:
+          - /bin/bash
+          - /tmp/init-files/wait_for_postgresql.sh
+          - /tmp/init-files/create_database.sh
+          containerName: postgresql
+          volumes:
+          - init-volume
+        failurePolicy: Abort
+      timeoutSeconds: 60
+    resources: {}
+    type: Recreate
+  triggers:
+  - type: ImageChange
+    imageChangeParams:
+        automatic: true
+        containerNames:
+        - postgresql
+        from:
+          kind: ImageStreamTag
+          name: postgresql:12-el8
+          namespace: openshift
+        
+  - type: ConfigChange
+  replicas: 1
+  selector:
+    name: psql-fhir
+  template:
+    metadata:
+      labels:
+        name: psql-fhir
+        app: psql-fhir
+    spec:
+      serviceAccountName: fhir-service-user
+      containers:
+      - name: postgresql
+        image: " "
+        ports:
+            - containerPort: 5432
+              protocol: TCP
+        readinessProbe:
+            timeoutSeconds: 1
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+            successThreshold: 1
+            exec:
+              command:
+                - "/bin/sh"
+                - "-i"
+                - "-c"
+                - psql -h 127.0.0.1 -U fhir -q -d fhir -c
+                  'SELECT 1'
+        livenessProbe:
+            timeoutSeconds: 1
+            periodSeconds: 10
+            failureThreshold: 3
+            successThreshold: 1
+            initialDelaySeconds: 30
+            tcpSocket:
+              port: 5432
+        env:
+            - name: POSTGRESQL_ADMIN_PASSWORD
+              value: admin
+            - name: POSTGRESQL_USER
+              valueFrom:
+                secretKeyRef:
+                    name: psql-fhir
+                    key: database-user
+            - name: POSTGRESQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                    name: psql-fhir
+                    key: database-password
+            - name: POSTGRESQL_DATABASE
+              valueFrom:
+                secretKeyRef:
+                    name: psql-fhir
+                    key: database-name
+            - name: POSTGRESQL_SERVICE
+              value: psql-fhir
+            - name: POSTGRESQL_MAX_PREPARED_TRANSACTIONS
+              value: "100"
+            - name: POSTGRESQL_MAX_CONNECTIONS
+              value: "100"
+        resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+        volumeMounts:
+            - name: psql-fhir-data
+              mountPath: "/var/lib/pgsql/data"
+            - name: init-volume
+              mountPath: /tmp/init-files
+            - name: fhir-debezium-cm
+              mountPath: "/opt/app-root/src/postgresql-cfg/"
+        terminationMessagePath: "/dev/termination-log"
+        terminationMessagePolicy: File
+        imagePullPolicy: IfNotPresent
+        securityContext:
+            capabilities: {}
+            privileged: false
+      volumes:
+      - name: psql-fhir-data
+        persistentVolumeClaim:
+            claimName: psql-fhir
+      - configMap:
+          defaultMode: 493
+          name: fhir-postgres-cm
+        name: init-volume
+      - configMap:
+          defaultMode: 493
+          name: fhir-debezium-cm
+        name: fhir-debezium-cm
+      restartPolicy: Always
+      dnsPolicy: ClusterFirst
+---
+# Source: fhir-server/templates/fhir-psql-db-dependencies.yaml
+kind: List
+apiVersion: v1
+namespace: sepsis-demo 
+items:
+ - kind: PersistentVolumeClaim
+   apiVersion: v1
+   metadata:
+    name: psql-fhir
+    labels:
+      app: psql-fhir
+     
+   spec:
+    accessModes:
+    - ReadWriteOnce
+    resources:
+      requests:
+        storage: 5Gi
+
+ - kind: ServiceAccount       
+   apiVersion: v1
+   metadata:
+      name: fhir-service-user
+      labels:
+            app: psql-fhir      
+
+ - kind: ConfigMap     
+   apiVersion: v1
+   metadata:
+      name: fhir-postgres-cm
+      labels:
+            app: psql-fhir   
+   data:
+      create_database.sh: |-
+        
+            #! /bin/bash
+        
+            
+        
+            export PGPASSWORD=$POSTGRESQL_PASSWORD
+        
+            
+        
+            SCRIPT_DIR=''
+        
+            pushd "$(dirname "$(readlink -f "$BASH_SOURCE")")" > /dev/null && {
+        
+                SCRIPT_DIR="$PWD"
+        
+                popd > /dev/null
+        
+            }   
+        
+            
+        
+            echo "creating FHIR Server database"
+        
+            
+        
+            psql -h $POSTGRESQL_SERVICE -d $POSTGRESQL_DATABASE -U $POSTGRESQL_USER -w -c "grant all privileges on database ${POSTGRESQL_DATABASE} to ${POSTGRESQL_USER};"
+        
+            
+        
+            echo "Enabling for Debezium"
+        
+            export PGPASSWORD=$POSTGRESQL_ADMIN_PASSWORD
+        
+            psql -h $POSTGRESQL_SERVICE -c "ALTER USER ${POSTGRESQL_USER} with Replication;"
+        
+            
+        
+            # Debezium needs ability to execute the following (which requires superuser) when using pgoutput plugin: "CREATE PUBLICATION dbz_publication FOR ALL TABLES;"
+        
+            #   https://debezium.io/documentation/reference/connectors/postgresql.html#postgresql-replication-user-privileges
+        
+            psql -h $POSTGRESQL_SERVICE  -c "ALTER USER ${POSTGRESQL_USER} with superuser;"
+        
+            
+        
+            
+        
+      wait_for_postgresql.sh: |-   
+        
+            #!/bin/sh
+        
+            
+        
+            # wait-for-postgres.sh
+        
+            set -e
+        
+            cmd="$@"
+        
+            timer="5"
+        
+            echo "Path is: $PATH"
+        
+            echo "When postgres is available, we will run this command: $cmd"
+        
+            echo "Waiting for PostgreSQL at: $POSTGRESQL_SERVICE"
+        
+            until pg_isready -h $POSTGRESQL_SERVICE 2>/dev/null; do
+        
+              echo "Postgres is unavailable - sleeping for $timer seconds"
+        
+              sleep $timer
+        
+            done
+        
+            echo "Postgres is up - executing command"
+        
+            exec $cmd
+        
+
+ - kind: ConfigMap       
+   apiVersion: v1
+   metadata:
+      name: fhir-debezium-cm
+      labels:
+            app: psql-fhir
+   data:
+      hapi-psql-debezium-conf.conf: |-
+          
+            # verify by executing the following while logged into postgresql:  SHOW wal_level
+          
+            
+          
+            wal_level = logical             
+          
+            max_wal_senders = 1             
+          
+            max_replication_slots = 1
+          
+            
+          
+
+ - kind: Secret
+   apiVersion: v1
+   metadata:
+        name: psql-fhir
+        labels:
+            app: psql-fhir
+   type: Opaque
+   data:
+        database-user: Zmhpcg==
+        database-password: Zmhpcg==
+        database-name: Zmhpcg==
+
+ - kind: Service       
+   apiVersion: v1
+   metadata:
+      name:  psql-fhir
+      annotations:
+        template.openshift.io/expose-uri: postgres://{.spec.clusterIP}:{.spec.ports[?(.name=="postgresql")].port}
+      labels:
+        app:  psql-fhir
+   spec:
+    ports:
+    - name: postgresql
+      protocol: TCP
+      port: 5432
+      targetPort: 5432
+      nodePort: 0
+    selector:
+      name:  psql-fhir
+    type: ClusterIP
+    sessionAffinity: None
+---
+# Source: fhir-server/templates/fhir-server.yaml
+kind: List
+apiVersion: v1
+namespace: sepsis-demo 
+items:
+  - kind: ServiceAccount
+    apiVersion: v1
+    metadata:
+       name: fhir-server
+       labels:
+            app: fhir-server
+
+  - kind: RoleBinding     
+    apiVersion: rbac.authorization.k8s.io/v1
+    metadata:
+        name: fhir-server-admin
+        labels:
+            app: fhir-server
+    roleRef:
+        apiGroup: rbac.authorization.k8s.io
+        kind: ClusterRole
+        name: admin
+    subjects:
+      - kind: ServiceAccount
+        name: fhir-server-admin
+        namespace: sepsis-demo    
+
+  - kind: ConfigMap
+    apiVersion: v1
+    metadata:
+        name: fhir-server-cm
+        labels:
+            app: fhir-server
+    data:
+      application.yaml: |-
+        spring: 
+          datasource: 
+            url: 'jdbc:postgresql://psql-fhir:5432/fhir' 
+            username: fhir 
+            password: fhir 
+            driverClassName: org.postgresql.Driver 
+            max-active: 15 
+          jpa: 
+            properties: 
+              hibernate.format_sql: false 
+              hibernate.show_sql: false 
+              hibernate.dialect: ca.uhn.fhir.jpa.starter.CustomPostgreSQLDialect 
+         
+               # These settings will enable fulltext search with lucene 
+        #      hibernate.search.enabled: true 
+        #      hibernate.search.backend.type: lucene 
+        #      hibernate.search.backend.analysis.configurer: ca.uhn.fhir.jpa.search.HapiLuceneAnalysisConfigurer 
+        #      hibernate.search.backend.directory.type: local-filesystem 
+        #      hibernate.search.backend.directory.root: target/lucenefiles 
+        #      hibernate.search.backend.lucene_version: lucene_current 
+         
+          batch: 
+            job: 
+              enabled: false 
+         
+        hapi: 
+          fhir: 
+            ### enable to set the Server URL 
+        #    server_address: http://hapi.fhir.org/baseR4 
+            ### This is the FHIR version. Choose between, DSTU2, DSTU3, R4 or R5 
+            fhir_version: R4 
+        #    defer_indexing_for_codesystems_of_size: 101 
+            #implementationguides: 
+              #example from registry (packages.fhir.org) 
+              #swiss: 
+                #name: swiss.mednet.fhir 
+                #version: 0.8.0 
+              #example not from registry 
+              #ips_1_0_0: 
+                #url: https://build.fhir.org/ig/HL7/fhir-ips/package.tgz 
+                #name: hl7.fhir.uv.ips 
+                #version: 1.0.0 
+         
+            #supported_resource_types: 
+            #  - Patient 
+            #  - Observation 
+        #    allow_cascading_deletes: true 
+        #    allow_contains_searches: true 
+        #    allow_external_references: true 
+        #    allow_multiple_delete: true 
+        #    allow_override_default_search_params: true 
+        #    allow_placeholder_references: true 
+        #    auto_create_placeholder_reference_targets: false 
+        #    cql_enabled: true 
+        #    default_encoding: JSON 
+        #    default_pretty_print: true 
+        #    default_page_size: 20 
+        #    enable_repository_validating_interceptor: false 
+        #    enable_index_missing_fields: false 
+        #    enforce_referential_integrity_on_delete: false 
+        #    enforce_referential_integrity_on_write: false 
+        #    etag_support_enabled: true 
+        #    expunge_enabled: true 
+        #    daoconfig_client_id_strategy: null 
+        #    fhirpath_interceptor_enabled: false 
+        #    filter_search_enabled: true 
+        #    graphql_enabled: true 
+        #    narrative_enabled: true 
+            #partitioning: 
+            #  allow_references_across_partitions: false 
+            #  partitioning_include_in_search_hashes: false 
+            cors: 
+              allow_Credentials: false 
+              # Supports multiple, comma separated allowed origin entries 
+              # cors.allowed_origin=http://localhost:8080,https://localhost:8080,https://fhirtest.uhn.ca 
+              allowed_origin: 
+                - '*' 
+                - "https://sepsisdetection-ui-sepsis-demo.apps.hub.example.com:443,https://sepsisdetection-rhpam-sepsis-demo.apps.hub.example.com:443" 
+         
+        #    logger: 
+        #      error_format: 'ERROR - ${requestVerb} ${requestUrl}' 
+        #      format: >- 
+        #        Path[${servletPath}] Source[${requestHeader.x-forwarded-for}] 
+        #        Operation[${operationType} ${operationName} ${idOrResourceName}] 
+        #        UA[${requestHeader.user-agent}] Params[${requestParameters}] 
+        #        ResponseEncoding[${responseEncodingNoDefault}] 
+        #      log_exceptions: true 
+        #      name: fhirtest.access 
+        #    max_binary_size: 104857600 
+        #    max_page_size: 200 
+        #    retain_cached_searches_mins: 60 
+            reuse_cached_search_results_millis: 5000 
+            tester: 
+         
+                home: 
+                  name: Local Tester 
+                  server_address: 'http://localhost:8080/fhir' 
+                  refuse_to_fetch_third_party_urls: false 
+                  fhir_version: R4 
+         
+                global: 
+                  name: Global Tester 
+                  server_address: "http://hapi.fhir.org/baseR4" 
+                  refuse_to_fetch_third_party_urls: false 
+                  fhir_version: R4 
+        #    validation: 
+        #      requests_enabled: true 
+        #      responses_enabled: true 
+        #    binary_storage_enabled: true 
+        #    bulk_export_enabled: true 
+        #    subscription: 
+        #      resthook_enabled: false 
+        #      websocket_enabled: false 
+        #      email: 
+        #        from: some@test.com 
+        #        host: google.com 
+        #        port: 
+        #        username: 
+        #        password: 
+        #        auth: 
+        #        startTlsEnable: 
+        #        startTlsRequired: 
+        #        quitWait: 
+        #    lastn_enabled: true 
+            ### This is configuration for normalized quantity serach level default is 0 
+            ###  0: NORMALIZED_QUANTITY_SEARCH_NOT_SUPPORTED - default 
+            ###  1: NORMALIZED_QUANTITY_STORAGE_SUPPORTED 
+            ###  2: NORMALIZED_QUANTITY_SEARCH_SUPPORTED 
+        #    normalized_quantity_search_level: 2 
+         
+         
+        # 
+        #elasticsearch: 
+        #  debug: 
+        #    pretty_print_json_log: false 
+        #    refresh_after_write: false 
+        #  enabled: false 
+        #  password: SomePassword 
+        #  required_index_status: YELLOW 
+        #  rest_url: 'localhost:9200' 
+        #  protocol: 'http' 
+        #  schema_management_strategy: CREATE 
+        #  username: SomeUsername 
+         
+        
+
+  - kind: ImageStream
+    apiVersion: image.openshift.io/v1
+    metadata:
+       name: fhir-server
+       labels:
+            app: fhir-server
+    spec:
+       dockerImageRepository: quay.io/redhat_naps_da/hapi-fhir-jpaserver-starter-ocp
+
+  - kind: Service
+    apiVersion: v1
+    metadata:
+       name: fhir-server
+       labels:
+            app: fhir-server
+            expose: "true"
+    spec:
+       ports:
+          - name: http
+            port: 8080
+            protocol: TCP
+            targetPort: 8080
+       selector:
+          group: fhir-server
+          app: fhir-server
+       sessionAffinity: None
+       type: ClusterIP       
+
+  - kind: DeploymentConfig
+    apiVersion: apps.openshift.io/v1
+    metadata:
+       name: fhir-server
+       labels:
+            app: fhir-server
+    spec:
+      triggers:
+        - type: ConfigChange
+        - imageChangeParams:
+            automatic: true
+            containerNames:
+              - fhir-server
+            from:
+              kind: ImageStreamTag
+              name: "fhir-server:v5.3.0-psql-bytea-1"
+          type: ImageChange        
+      replicas: 1
+      revisionHistoryLimit: 2
+      selector:
+        group: fhir-server
+        app: fhir-server
+      strategy:  
+        activeDeadlineSeconds: 21600
+        resources: {}
+        rollingParams:
+          intervalSeconds: 1
+          maxSurge: 25%
+          maxUnavailable: 25%
+          timeoutSeconds: 3600
+          updatePeriodSeconds: 1 
+        type: Rolling 
+      template:
+        metadata:
+          labels:
+            group: fhir-server
+            app: fhir-server    
+        spec:
+            containers:
+            - env:
+              - name: JAVA_MAX_MEM_RATIO
+                value: "60"
+              - name: JAVA_INITIAL_MEM_RATIO
+                value: "0"
+              - name: GC_MAX_METASPACE_SIZE
+                value: "500"
+              - name: KUBERNETES_NAMESPACE
+                valueFrom:
+                  fieldRef:
+                    apiVersion: v1
+                    fieldPath: metadata.namespace
+              - name: SPRING_CONFIG_LOCATION
+                value: file:///deployments/config/application.yaml  
+              imagePullPolicy: IfNotPresent
+              name: fhir-server  
+              livenessProbe:
+                failureThreshold: 3
+                httpGet:
+                  path: /fhir/TerminologyCapabilities
+                  port: 8080
+                  scheme: HTTP
+                initialDelaySeconds: 30
+                periodSeconds: 60
+                successThreshold: 1
+                timeoutSeconds: 3
+              readinessProbe:
+                failureThreshold: 3
+                httpGet:
+                  path: /fhir/TerminologyCapabilities
+                  port: 8080
+                  scheme: HTTP
+                initialDelaySeconds: 30
+                periodSeconds: 60
+                successThreshold: 1
+                timeoutSeconds: 3
+              resources:
+                limits:
+                  cpu: '1'
+                  memory: '2Gi'
+                requests:
+                  cpu: '250m'
+                  memory: '250Mi'
+              securityContext:
+                privileged: false
+              terminationMessagePath: /dev/termination-log
+              terminationMessagePolicy: File
+              volumeMounts:
+              - mountPath: /deployments/config
+                name: config        
+            dnsPolicy: ClusterFirst
+            restartPolicy: Always
+            schedulerName: default-scheduler
+            securityContext: {}
+            serviceAccount: fhir-server
+            serviceAccountName: fhir-server
+            terminationGracePeriodSeconds: 30
+            volumes:
+            - configMap:
+                defaultMode: 420
+                items:
+                  - key: application.yaml
+                    path: application.yaml
+                name: fhir-server-cm
+              name: config
+  
+  - kind : Route  
+    apiVersion: route.openshift.io/v1
+    metadata:
+      name: fhir-server
+    spec:
+      host: fhir-server-sepsis-demo.apps.hub.example.com
+      port:
+        targetPort: http
+      tls:
+        termination: edge
+      to:
+        kind: Service
+        name: fhir-server
+      wildcardPolicy: None
