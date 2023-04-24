@@ -1,0 +1,138 @@
+apiVersion: kafka.strimzi.io/v1beta2
+kind: Kafka
+metadata:
+  name: {{ .Values.kafka_cluster }}
+  namespace: {{ .Values.project_name }}
+spec:
+  kafka:
+    #version: {{ .Values.kafka.version }}
+    replicas: {{ .Values.kafka.replicas }}
+    listeners:
+      - name: plain
+        port: {{ .Values.kafka.bootstrap.port }}
+        type: internal
+        tls: false
+      - name: tls
+        port: 9093
+        type: internal
+        tls: true
+    resources:
+      requests:
+        cpu: '{{ .Values.kafka.requests.cpu }}'
+        memory: '{{ .Values.kafka.requests.memory }}'
+      limits:
+        cpu: '{{ .Values.kafka.limits.cpu }}'
+        memory: '{{ .Values.kafka.limits.memory }}'
+    livenessProbe:
+      initialDelaySeconds: {{ .Values.kafka.liveness_probe.initial_delay_seconds }}
+      timeoutSeconds: {{ .Values.kafka.liveness_probe.imeout_seconds }}
+    readinessProbe:
+      initialDelaySeconds: {{ .Values.kafka.readiness_probe.initial_delay_seconds }}
+      timeoutSeconds: {{ .Values.kafka.readiness_probe.timeout_seconds }}
+    jvmOptions:
+      gcLoggingEnabled: false
+    {{- if .Values.enable_metrics }}   
+    metricsConfig:
+      type: jmxPrometheusExporter
+      valueFrom:
+        configMapKeyRef:
+          name: {{ .Values.kafka_metrics_configmap }}
+          key: kafka-metrics-config.yml
+    {{- end }}
+    config:
+      offsets.topic.replication.factor: {{ .Values.kafka.offsets_topic_replication_factor }}
+      transaction.state.log.replication.factor: {{ .Values.kafka.transaction_state_log.replication_factor }}
+      transaction.state.log.min.isr: {{ .Values.kafka.transaction_state_log.min_isr }}
+
+      min.insync.replicas: 1
+      default.replication.factor: 2
+      #inter.broker.protocol.version: {{ .Values.kafka.log_message_format_version }}
+      
+    storage:
+      {{- if eq .Values.kafka.storage_type "persistent" }}
+      type: persistent-claim
+      size: {{ .Values.kafka.volume_capacity }}
+      deleteClaim: {{ .Values.kafka.delete_claim }}
+      {{- end }}
+      {{- if eq .Values.kafka.storage_type "ephemeral" }}
+      type: ephemeral
+      {{- end }}
+  zookeeper:
+    replicas: {{ .Values.zookeeper.replicas }}
+    resources:
+      requests:
+        cpu: '{{ .Values.zookeeper.requests.cpu }}'
+        memory: '{{ .Values.zookeeper.requests.memory }}'
+      limits:
+        cpu: '{{ .Values.zookeeper.limits.cpu }}'
+        memory: '{{ .Values.zookeeper.limits.memory }}'
+    readinessProbe:
+      initialDelaySeconds: {{ .Values.zookeeper.readiness_probe.initial_delay_seconds }}
+      timeoutSeconds: {{ .Values.zookeeper.readiness_probe.timeout_seconds }}
+    livenessProbe:
+      initialDelaySeconds: {{ .Values.zookeeper.liveness_probe.initial_delay_seconds }}
+      timeoutSeconds: {{ .Values.zookeeper.liveness_probe.timeout_seconds }}
+    {{- if .Values.enable_metrics }} 
+    metricsConfig:
+      type: jmxPrometheusExporter
+      valueFrom:
+        configMapKeyRef:
+          name: {{ .Values.kafka_metrics_configmap }}
+          key: zookeeper-metrics-config.yml
+    {{- end }}
+    storage:
+      {{- if eq .Values.zookeeper.storage_type "persistent" }}
+      type: persistent-claim
+      size: {{ .Values.zookeeper.volume_capacity }}
+      deleteClaim: {{ .Values.zookeeper.delete_claim }}
+      {{- end }}
+      {{- if eq .Values.zookeeper.storage_type "ephemeral" }}
+      type: ephemeral
+      {{- end }}
+  entityOperator:
+    topicOperator:
+      resources:
+        requests:
+          cpu: "{{ .Values.topic.operator.requests.cpu }}"
+          memory: {{ .Values.topic.operator.requests.memory }}
+        limits:
+          cpu: "{{ .Values.topic.operator.limits.cpu }}"
+          memory: {{ .Values.topic.operator.limits.memory }}
+      readinessProbe:
+        initialDelaySeconds: {{ .Values.topic.operator.readiness_probe.initial_delay_seconds }}
+        timeoutSeconds: {{ .Values.topic.operator.readiness_probe.timeout_seconds }}
+      livenessProbe:
+        initialDelaySeconds: {{ .Values.topic.operator.liveness_probe.initial_delay_seconds }}
+        timeoutSeconds: {{ .Values.topic.operator.liveness_probe.timeout_seconds }}
+    userOperator: 
+      resources:
+        requests:
+          cpu: "{{ .Values.user.operator.requests.cpu }}"
+          memory: {{ .Values.user.operator.requests.memory }}
+        limits:
+          cpu: "{{.Values.user.operator.limits.cpu }}"
+          memory: {{.Values.user.operator.limits.memory }}
+      readinessProbe:
+        initialDelaySeconds: {{.Values.user.operator.readiness_probe.initial_delay_seconds }}
+        timeoutSeconds: {{.Values.user.operator.readiness_probe.timeout_seconds }}
+      livenessProbe:
+        initialDelaySeconds: {{.Values.user.operator.liveness_probe.initial_delay_seconds }}
+        timeoutSeconds: {{.Values.user.operator.liveness_probe.timeout_seconds }}
+  kafkaExporter:
+    groupRegex: ".*"
+    topicRegex: "^topic-.+"
+    resources:
+      requests:
+        cpu: 200m
+        memory: 64Mi
+      limits:
+        cpu: 500m
+        memory: 128Mi
+    logging: warn
+    enableSaramaLogging: true
+    readinessProbe: 
+      initialDelaySeconds: 15
+      timeoutSeconds: 5
+    livenessProbe: 
+      initialDelaySeconds: 15
+      timeoutSeconds: 5

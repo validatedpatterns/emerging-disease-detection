@@ -1,0 +1,10 @@
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: {{ .Values.kafka_connect.imagestream }}
+  namespace: {{ .Values.project_name }}
+  labels:
+     app: debezium
+spec:
+  lookupPolicy:
+    local: true

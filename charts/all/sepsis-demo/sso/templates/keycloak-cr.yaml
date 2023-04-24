@@ -1,0 +1,15 @@
+kind: Keycloak
+apiVersion: keycloak.org/v1alpha1
+metadata:
+  name: {{.Values.keycloak.name}}
+  labels:
+    app: {{.Values.keycloak.name}}
+  namespace: {{.Values.namespace}}
+spec:
+  instances: 1
+  extensions:
+    - {{.Values.keycloak.metrics.url}}
+  externalAccess:
+    enabled: False
+  profile: {{.Values.keycloak.profile}}  
+   

@@ -1,0 +1,45 @@
+---
+kind: List
+apiVersion: v1
+namespace: {{.Values.namespace}} 
+items:
+    - apiVersion: v1
+      kind: ServiceAccount
+      metadata:
+        name: "{{ .Values.service_account }}"
+        namespace: "{{ .Values.namespace }}"
+
+    - apiVersion: rbac.authorization.k8s.io/v1
+      kind: RoleBinding
+      metadata:
+        name: "{{ .Values.service_account }}-admin"
+        namespace: "{{ .Values.namespace }}"
+      roleRef:
+        apiGroup: rbac.authorization.k8s.io
+        kind: ClusterRole
+        name: admin
+      subjects:
+      - kind: ServiceAccount
+        name: "{{ .Values.service_account }}-admin"
+        namespace: "{{ .Values.namespace }}"
+
+    - apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: "{{ .Values.application_configmap }}"
+      data:
+        application.properties: |-
+            {{ range $lines := .Files.Lines .Values.configmap.applproperties }}
+              {{- $record :=   tpl $lines $ -}}
+              {{- trim $record | indent 6 }}
+            {{ end }}
+
+    - apiVersion: image.openshift.io/v1
+      kind: ImageStream
+      metadata:
+        name: {{ .Values.application_name }}
+        labels:
+            app: {{ .Values.application_name }}
+      spec:
+        dockerImageRepository: {{ .Values.service_image }}
+        

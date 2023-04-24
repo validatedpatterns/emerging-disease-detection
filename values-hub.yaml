@@ -3,35 +3,28 @@ clusterGroup:
   isHubCluster: true
 
   namespaces:
-    - open-cluster-management
     - vault
-    - golang-external-secrets
-    - config-demo
-    - hello-world
+    - sepsis-demo
+    - openshift-serverless
 
   subscriptions:
-    acm:
-      name: advanced-cluster-management
-      namespace: open-cluster-management
-      channel: release-2.6
-      #csv: advanced-cluster-management.v2.6.1
+     amqstreams:
+        name: amq-streams
+        namespace: sepsis-demo
+        channel: stable
+     serverlessoperator:
+        name: serverless-operator
+        channel: stable
+     rhsso-operator:  
+        name: rhsso-operator
+        channel: stable
+        namespace: sepsis-demo
 
   projects:
-    - hub
-    - config-demo
-    - hello-world
+   - hub
+   - sepsis-demo
 
   applications:
-    acm:
-      name: acm
-      namespace: open-cluster-management
-      project: hub
-      path: common/acm
-      ignoreDifferences:
-      - group: internal.open-cluster-management.io
-        kind: ManagedClusterInfo
-        jsonPointers:
-          - /spec/loggingCA
 
     vault:
       name: vault
@@ -39,23 +32,131 @@ clusterGroup:
       project: hub
       path: common/hashicorp-vault
 
-    golang-external-secrets:
-      name: golang-external-secrets
-      namespace: golang-external-secrets
-      project: hub
-      path: common/golang-external-secrets
+    sso:
+      name: sso
+      namespace: sepsis-demo
+      project: sepsis-demo
+      path: charts/all/sepsis-demo/sso
+      ignoreDifferences:
+       - group: apps.openshift.io
+         kind: DeploymentConfig
+         jqPathExpressions:
+          - '.spec.template.spec.containers[].image'   
 
-    config-demo:
-      name: config-demo
-      namespace: config-demo
-      project: config-demo
-      path: charts/all/config-demo
+    kafka-cluster:
+      name: kafka-cluster
+      namespace: sepsis-demo
+      project: sepsis-demo
+      path: charts/all/sepsis-demo/kafka-cluster   
+      ignoreDifferences:
+       - group: apps.openshift.io
+         kind: DeploymentConfig
+         jqPathExpressions:
+          - '.spec.template.spec.containers[].image' 
 
-    hello-world:
-      name: hello-world
-      namespace: hello-world
-      project: hello-world
-      path: charts/all/hello-world
+    fhir:
+      name: fhir
+      namespace: sepsis-demo
+      project: sepsis-demo  
+      path: charts/all/sepsis-demo/fhir-server
+      ignoreDifferences:
+      - group: apps.openshift.io
+        kind: DeploymentConfig
+        jqPathExpressions:
+        - '.spec.template.spec.containers[].image'     
+
+    debezium:
+      name: debezium
+      namespace: sepsis-demo
+      project: sepsis-demo  
+      path: charts/all/sepsis-demo/debezium
+      ignoreDifferences:
+      - group: apps.openshift.io
+        kind: DeploymentConfig
+        jqPathExpressions:
+        - '.spec.template.spec.containers[].image'  
+
+    kafdrop:
+      name: kafdrop
+      namespace: sepsis-demo
+      project: sepsis-demo  
+      path: charts/all/sepsis-demo/kafdrop
+      ignoreDifferences:
+      - group: apps.openshift.io
+        kind: DeploymentConfig
+        jqPathExpressions:
+        - '.spec.template.spec.containers[].image'  
+
+    knative-sepsis: 
+      name: knative-sepsis
+      namespace: sepsis-demo
+      project: sepsis-demo  
+      path: charts/all/sepsis-demo/knative
+      ignoreDifferences:
+      - group: apps.openshift.io
+        kind: DeploymentConfig
+        jqPathExpressions:
+        - '.spec.template.spec.containers[].image' 
+
+    sepsisdetection-risk:
+      name: sepsisdetection-risk
+      namespace: sepsis-demo
+      project: sepsis-demo  
+      path: charts/all/sepsis-demo/sepsisdetection-risk
+      ignoreDifferences:
+      - group: apps.openshift.io
+        kind: DeploymentConfig
+        jqPathExpressions:
+        - '.spec.template.spec.containers[].image'
+
+    sepsisdetection-sse:
+      name: sepsisdetection-sse
+      namespace: sepsis-demo
+      project: sepsis-demo  
+      path: charts/all/sepsis-demo/sepsisdetection-sse
+      ignoreDifferences:
+      - group: apps.openshift.io
+        kind: DeploymentConfig
+        jqPathExpressions:
+        - '.spec.template.spec.containers[].image'
+
+    sepsisdetection-ml:
+      name: sepsisdetection-ml
+      namespace: sepsis-demo
+      project: sepsis-demo  
+      path: charts/all/sepsis-demo/sepsisdetection-ml
+      syncPolicy:
+        syncOptions:
+           - Prune=false
+      ignoreDifferences:
+      - group: apps.openshift.io
+        kind: DeploymentConfig
+        jqPathExpressions:
+        - '.spec.template.spec.containers[].image'
+
+    rhpam:
+      name: rhpam
+      namespace: sepsis-demo
+      project: sepsis-demo  
+      path: charts/all/sepsis-demo/rhpam  
+      ignoreDifferences:
+      - group: apps.openshift.io
+        kind: DeploymentConfig
+        jqPathExpressions:
+        - '.spec.template.spec.containers[].image'  
+        - '.spec.triggers[].imageChangeParams.lastTriggeredImage'
+
+    sepsisdetection-ui:
+      name: sepsisdetection-ui
+      namespace: sepsis-demo
+      project: sepsis-demo  
+      path: charts/all/sepsis-demo/sepsisdetection-ui
+      ignoreDifferences:
+      - group: apps.openshift.io
+        kind: DeploymentConfig
+        jqPathExpressions:
+        - '.spec.template.spec.containers[].image'
+
 
   imperative:
     # NOTE: We *must* use lists and not hashes. As hashes lose ordering once parsed by helm
@@ -64,10 +165,11 @@ clusterGroup:
     # imagePullPolicy is set to always: imperative.imagePullPolicy
     # For additional overrides that apply to the jobs, please refer to
     # https://hybrid-cloud-patterns.io/imperative-actions/#additional-job-customizations
+    image: quay.io/redhat_naps_da/ansible-execution-image-with-tools
     jobs:
-    - name: hello-world
+    - name: sso-realm
       # ansible playbook to be run
-      playbook: common/ansible/playbooks/hello-world/hello-world.yaml
+      playbook: common/ansible/playbooks/sso-realm/sso-realm.yaml
       # per playbook timeout in seconds
       timeout: 234
       # verbosity: "-v"

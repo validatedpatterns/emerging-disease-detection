@@ -1,0 +1,2523 @@
+---
+# Source: rhpam/templates/rhpam-db.yaml
+kind: List
+apiVersion: v1
+namespace: sepsis-demo 
+items:
+  - apiVersion: v1
+    kind: ServiceAccount
+    metadata:
+      name: "psql-rhpam"
+      namespace: "sepsis-demo"
+
+  - apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: "psql-rhpam-init"
+      namespace: "sepsis-demo"
+    data:
+      create_database.sh: |-
+          
+              #! /bin/bash
+          
+              
+          
+              export PGPASSWORD=$POSTGRESQL_PASSWORD
+          
+              
+          
+              SCRIPT_DIR=''
+          
+              pushd "$(dirname "$(readlink -f "$BASH_SOURCE")")" > /dev/null && {
+          
+                  SCRIPT_DIR="$PWD"
+          
+                  popd > /dev/null
+          
+              }   
+          
+              
+          
+              echo "creating RHPAM database"
+          
+              
+          
+              psql -h $POSTGRESQL_SERVICE -d $POSTGRESQL_DATABASE -U $POSTGRESQL_USER -w -c "grant all privileges on database ${POSTGRESQL_DATABASE} to ${POSTGRESQL_USER};"
+          
+              psql -h $POSTGRESQL_SERVICE -d $POSTGRESQL_DATABASE -U $POSTGRESQL_USER -w < ${SCRIPT_DIR}/postgresql-springboot-jbpm-schema.sql
+          
+              psql -h $POSTGRESQL_SERVICE -d $POSTGRESQL_DATABASE -U $POSTGRESQL_USER -w < ${SCRIPT_DIR}/task_assigning_tables_postgresql.sql
+          
+              psql -h $POSTGRESQL_SERVICE -d $POSTGRESQL_DATABASE -U $POSTGRESQL_USER -w < ${SCRIPT_DIR}/quartz_tables_postgres.sql
+          
+              psql -h $POSTGRESQL_SERVICE -d $POSTGRESQL_DATABASE -U $POSTGRESQL_USER -w < ${SCRIPT_DIR}/postgresql-jbpm-lo-trigger-clob.sql
+          
+              
+          
+      postgresql-jbpm-lo-trigger-clob.sql: |-
+          
+              drop table if exists jbpm_active_clob;
+          
+              create table jbpm_active_clob ( loid oid );
+          
+              
+          
+              -- Triggers to protect CLOB from vacuumlo
+          
+              
+          
+              -- booleanexpression.expression for CLOB
+          
+              
+          
+              CREATE OR REPLACE FUNCTION booleanexpression_expression_clob_before_insert()
+          
+                RETURNS "trigger" AS
+          
+              $BODY$
+          
+              declare
+          
+              begin
+          
+                  insert into jbpm_active_clob (loid) values (cast(new.expression as oid));
+          
+                  return new;
+          
+              end;
+          
+              $BODY$
+          
+                LANGUAGE plpgsql VOLATILE;
+          
+              
+          
+              CREATE TRIGGER booleanexpression_expression_clob_before_insert_trigger
+          
+                BEFORE INSERT
+          
+                ON booleanexpression
+          
+                FOR EACH ROW
+          
+                WHEN (new.expression IS NOT NULL)
+          
+                EXECUTE PROCEDURE booleanexpression_expression_clob_before_insert();
+          
+              
+          
+              CREATE OR REPLACE FUNCTION booleanexpression_expression_clob_before_update()
+          
+                RETURNS "trigger" AS
+          
+              $BODY$
+          
+              declare
+          
+              begin
+          
+                  insert into jbpm_active_clob (loid) values (cast(new.expression as oid));
+          
+                  return new;
+          
+              end;
+          
+              $BODY$
+          
+                LANGUAGE plpgsql VOLATILE;
+          
+              
+          
+              CREATE TRIGGER booleanexpression_expression_clob_before_update_trigger
+          
+                BEFORE UPDATE
+          
+                ON booleanexpression
+          
+                FOR EACH ROW
+          
+                WHEN (new.expression IS NOT NULL AND old.expression IS DISTINCT FROM new.expression)
+          
+                EXECUTE PROCEDURE booleanexpression_expression_clob_before_update();
+          
+              
+          
+              CREATE OR REPLACE FUNCTION booleanexpression_expression_clob_after_update()
+          
+                RETURNS "trigger" AS
+          
+              $BODY$
+          
+              declare
+          
+              begin
+          
+                  delete from jbpm_active_clob where loid = cast(old.expression as oid);
+          
+                  return new;
+          
+              end;
+          
+              $BODY$
+          
+                LANGUAGE plpgsql VOLATILE;
+          
+              
+          
+              CREATE TRIGGER booleanexpression_expression_clob_after_update_trigger
+          
+                AFTER UPDATE
+          
+                ON booleanexpression
+          
+                FOR EACH ROW
+          
+                WHEN (old.expression IS NOT NULL AND old.expression IS DISTINCT FROM new.expression)
+          
+                EXECUTE PROCEDURE booleanexpression_expression_clob_after_update();
+          
+              
+          
+              CREATE OR REPLACE FUNCTION booleanexpression_expression_clob_after_delete()
+          
+                RETURNS "trigger" AS
+          
+              $BODY$
+          
+              declare
+          
+              begin
+          
+                  delete from jbpm_active_clob where loid = cast(old.expression as oid);
+          
+                  return old;
+          
+              end;
+          
+              $BODY$
+          
+                LANGUAGE plpgsql VOLATILE;
+          
+              
+          
+              CREATE TRIGGER booleanexpression_expression_clob_after_delete_trigger
+          
+                AFTER DELETE
+          
+                ON booleanexpression
+          
+                FOR EACH ROW
+          
+                WHEN (old.expression IS NOT NULL)
+          
+                EXECUTE PROCEDURE booleanexpression_expression_clob_after_delete();
+          
+              
+          
+              -- email_header.body for CLOB
+          
+              
+          
+              CREATE OR REPLACE FUNCTION email_header_body_clob_before_insert()
+          
+                RETURNS "trigger" AS
+          
+              $BODY$
+          
+              declare
+          
+              begin
+          
+                  insert into jbpm_active_clob (loid) values (cast(new.body as oid));
+          
+                  return new;
+          
+              end;
+          
+              $BODY$
+          
+                LANGUAGE plpgsql VOLATILE;
+          
+              
+          
+              CREATE TRIGGER email_header_body_clob_before_insert_trigger
+          
+                BEFORE INSERT
+          
+                ON email_header
+          
+                FOR EACH ROW
+          
+                WHEN (new.body IS NOT NULL)
+          
+                EXECUTE PROCEDURE email_header_body_clob_before_insert();
+          
+              
+          
+              CREATE OR REPLACE FUNCTION email_header_body_clob_before_update()
+          
+                RETURNS "trigger" AS
+          
+              $BODY$
+          
+              declare
+          
+              begin
+          
+                  insert into jbpm_active_clob (loid) values (cast(new.body as oid));
+          
+                  return new;
+          
+              end;
+          
+              $BODY$
+          
+                LANGUAGE plpgsql VOLATILE;
+          
+              
+          
+              CREATE TRIGGER email_header_body_clob_before_update_trigger
+          
+                BEFORE UPDATE
+          
+                ON email_header
+          
+                FOR EACH ROW
+          
+                WHEN (new.body IS NOT NULL AND old.body IS DISTINCT FROM new.body)
+          
+                EXECUTE PROCEDURE email_header_body_clob_before_update();
+          
+              
+          
+              CREATE OR REPLACE FUNCTION email_header_body_clob_after_update()
+          
+                RETURNS "trigger" AS
+          
+              $BODY$
+          
+              declare
+          
+              begin
+          
+                  delete from jbpm_active_clob where loid = cast(old.body as oid);
+          
+                  return new;
+          
+              end;
+          
+              $BODY$
+          
+                LANGUAGE plpgsql VOLATILE;
+          
+              
+          
+              CREATE TRIGGER email_header_body_clob_after_update_trigger
+          
+                AFTER UPDATE
+          
+                ON email_header
+          
+                FOR EACH ROW
+          
+                WHEN (old.body IS NOT NULL AND old.body IS DISTINCT FROM new.body)
+          
+                EXECUTE PROCEDURE email_header_body_clob_after_update();
+          
+              
+          
+              CREATE OR REPLACE FUNCTION email_header_body_clob_after_delete()
+          
+                RETURNS "trigger" AS
+          
+              $BODY$
+          
+              declare
+          
+              begin
+          
+                  delete from jbpm_active_clob where loid = cast(old.body as oid);
+          
+                  return old;
+          
+              end;
+          
+              $BODY$
+          
+                LANGUAGE plpgsql VOLATILE;
+          
+              
+          
+              CREATE TRIGGER email_header_body_clob_after_delete_trigger
+          
+                AFTER DELETE
+          
+                ON email_header
+          
+                FOR EACH ROW
+          
+                WHEN (old.body IS NOT NULL)
+          
+                EXECUTE PROCEDURE email_header_body_clob_after_delete();
+          
+              
+          
+              -- i18ntext.text for CLOB
+          
+              
+          
+              CREATE OR REPLACE FUNCTION i18ntext_text_clob_before_insert()
+          
+                RETURNS "trigger" AS
+          
+              $BODY$
+          
+              declare
+          
+              begin
+          
+                  insert into jbpm_active_clob (loid) values (cast(new.text as oid));
+          
+                  return new;
+          
+              end;
+          
+              $BODY$
+          
+                LANGUAGE plpgsql VOLATILE;
+          
+              
+          
+              CREATE TRIGGER i18ntext_text_clob_before_insert_trigger
+          
+                BEFORE INSERT
+          
+                ON i18ntext
+          
+                FOR EACH ROW
+          
+                WHEN (new.text IS NOT NULL)
+          
+                EXECUTE PROCEDURE i18ntext_text_clob_before_insert();
+          
+              
+          
+              CREATE OR REPLACE FUNCTION i18ntext_text_clob_before_update()
+          
+                RETURNS "trigger" AS
+          
+              $BODY$
+          
+              declare
+          
+              begin
+          
+                  insert into jbpm_active_clob (loid) values (cast(new.text as oid));
+          
+                  return new;
+          
+              end;
+          
+              $BODY$
+          
+                LANGUAGE plpgsql VOLATILE;
+          
+              
+          
+              CREATE TRIGGER i18ntext_text_clob_before_update_trigger
+          
+                BEFORE UPDATE
+          
+                ON i18ntext
+          
+                FOR EACH ROW
+          
+                WHEN (new.text IS NOT NULL AND old.text IS DISTINCT FROM new.text)
+          
+                EXECUTE PROCEDURE i18ntext_text_clob_before_update();
+          
+              
+          
+              CREATE OR REPLACE FUNCTION i18ntext_text_clob_after_update()
+          
+                RETURNS "trigger" AS
+          
+              $BODY$
+          
+              declare
+          
+              begin
+          
+                  delete from jbpm_active_clob where loid = cast(old.text as oid);
+          
+                  return new;
+          
+              end;
+          
+              $BODY$
+          
+                LANGUAGE plpgsql VOLATILE;
+          
+              
+          
+              CREATE TRIGGER i18ntext_text_clob_after_update_trigger
+          
+                AFTER UPDATE
+          
+                ON i18ntext
+          
+                FOR EACH ROW
+          
+                WHEN (old.text IS NOT NULL AND old.text IS DISTINCT FROM new.text)
+          
+                EXECUTE PROCEDURE i18ntext_text_clob_after_update();
+          
+              
+          
+              CREATE OR REPLACE FUNCTION i18ntext_text_clob_after_delete()
+          
+                RETURNS "trigger" AS
+          
+              $BODY$
+          
+              declare
+          
+              begin
+          
+                  delete from jbpm_active_clob where loid = cast(old.text as oid);
+          
+                  return old;
+          
+              end;
+          
+              $BODY$
+          
+                LANGUAGE plpgsql VOLATILE;
+          
+              
+          
+              CREATE TRIGGER i18ntext_text_clob_after_delete_trigger
+          
+                AFTER DELETE
+          
+                ON i18ntext
+          
+                FOR EACH ROW
+          
+                WHEN (old.text IS NOT NULL)
+          
+                EXECUTE PROCEDURE i18ntext_text_clob_after_delete();
+          
+              
+          
+              -- task_comment.text for CLOB
+          
+              
+          
+              CREATE OR REPLACE FUNCTION task_comment_text_clob_before_insert()
+          
+                RETURNS "trigger" AS
+          
+              $BODY$
+          
+              declare
+          
+              begin
+          
+                  insert into jbpm_active_clob (loid) values (cast(new.text as oid));
+          
+                  return new;
+          
+              end;
+          
+              $BODY$
+          
+                LANGUAGE plpgsql VOLATILE;
+          
+              
+          
+              CREATE TRIGGER task_comment_text_clob_before_insert_trigger
+          
+                BEFORE INSERT
+          
+                ON task_comment
+          
+                FOR EACH ROW
+          
+                WHEN (new.text IS NOT NULL)
+          
+                EXECUTE PROCEDURE task_comment_text_clob_before_insert();
+          
+              
+          
+              CREATE OR REPLACE FUNCTION task_comment_text_clob_before_update()
+          
+                RETURNS "trigger" AS
+          
+              $BODY$
+          
+              declare
+          
+              begin
+          
+                  insert into jbpm_active_clob (loid) values (cast(new.text as oid));
+          
+                  return new;
+          
+              end;
+          
+              $BODY$
+          
+                LANGUAGE plpgsql VOLATILE;
+          
+              
+          
+              CREATE TRIGGER task_comment_text_clob_before_update_trigger
+          
+                BEFORE UPDATE
+          
+                ON task_comment
+          
+                FOR EACH ROW
+          
+                WHEN (new.text IS NOT NULL AND old.text IS DISTINCT FROM new.text)
+          
+                EXECUTE PROCEDURE task_comment_text_clob_before_update();
+          
+              
+          
+              CREATE OR REPLACE FUNCTION task_comment_text_clob_after_update()
+          
+                RETURNS "trigger" AS
+          
+              $BODY$
+          
+              declare
+          
+              begin
+          
+                  delete from jbpm_active_clob where loid = cast(old.text as oid);
+          
+                  return new;
+          
+              end;
+          
+              $BODY$
+          
+                LANGUAGE plpgsql VOLATILE;
+          
+              
+          
+              CREATE TRIGGER task_comment_text_clob_after_update_trigger
+          
+                AFTER UPDATE
+          
+                ON task_comment
+          
+                FOR EACH ROW
+          
+                WHEN (old.text IS NOT NULL AND old.text IS DISTINCT FROM new.text)
+          
+                EXECUTE PROCEDURE task_comment_text_clob_after_update();
+          
+              
+          
+              CREATE OR REPLACE FUNCTION task_comment_text_clob_after_delete()
+          
+                RETURNS "trigger" AS
+          
+              $BODY$
+          
+              declare
+          
+              begin
+          
+                  delete from jbpm_active_clob where loid = cast(old.text as oid);
+          
+                  return old;
+          
+              end;
+          
+              $BODY$
+          
+                LANGUAGE plpgsql VOLATILE;
+          
+              
+          
+              CREATE TRIGGER task_comment_text_clob_after_delete_trigger
+          
+                AFTER DELETE
+          
+                ON task_comment
+          
+                FOR EACH ROW
+          
+                WHEN (old.text IS NOT NULL)
+          
+                EXECUTE PROCEDURE task_comment_text_clob_after_delete();
+          
+              
+          
+              -- querydefinitionstore.qexpression for CLOB
+          
+              
+          
+              CREATE OR REPLACE FUNCTION querydefinitionstore_qexpression_clob_before_insert()
+          
+                RETURNS "trigger" AS
+          
+              $BODY$
+          
+              declare
+          
+              begin
+          
+                  insert into jbpm_active_clob (loid) values (cast(new.qexpression as oid));
+          
+                  return new;
+          
+              end;
+          
+              $BODY$
+          
+                LANGUAGE plpgsql VOLATILE;
+          
+              
+          
+              CREATE TRIGGER querydefinitionstore_qexpression_clob_before_insert_trigger
+          
+                BEFORE INSERT
+          
+                ON querydefinitionstore
+          
+                FOR EACH ROW
+          
+                WHEN (new.qexpression IS NOT NULL)
+          
+                EXECUTE PROCEDURE querydefinitionstore_qexpression_clob_before_insert();
+          
+              
+          
+              CREATE OR REPLACE FUNCTION querydefinitionstore_qexpression_clob_before_update()
+          
+                RETURNS "trigger" AS
+          
+              $BODY$
+          
+              declare
+          
+              begin
+          
+                  insert into jbpm_active_clob (loid) values (cast(new.qexpression as oid));
+          
+                  return new;
+          
+              end;
+          
+              $BODY$
+          
+                LANGUAGE plpgsql VOLATILE;
+          
+              
+          
+              CREATE TRIGGER querydefinitionstore_qexpression_clob_before_update_trigger
+          
+                BEFORE UPDATE
+          
+                ON querydefinitionstore
+          
+                FOR EACH ROW
+          
+                WHEN (new.qexpression IS NOT NULL AND old.qexpression IS DISTINCT FROM new.qexpression)
+          
+                EXECUTE PROCEDURE querydefinitionstore_qexpression_clob_before_update();
+          
+              
+          
+              CREATE OR REPLACE FUNCTION querydefinitionstore_qexpression_clob_after_update()
+          
+                RETURNS "trigger" AS
+          
+              $BODY$
+          
+              declare
+          
+              begin
+          
+                  delete from jbpm_active_clob where loid = cast(old.qexpression as oid);
+          
+                  return new;
+          
+              end;
+          
+              $BODY$
+          
+                LANGUAGE plpgsql VOLATILE;
+          
+              
+          
+              CREATE TRIGGER querydefinitionstore_qexpression_clob_after_update_trigger
+          
+                AFTER UPDATE
+          
+                ON querydefinitionstore
+          
+                FOR EACH ROW
+          
+                WHEN (old.qexpression IS NOT NULL AND old.qexpression IS DISTINCT FROM new.qexpression)
+          
+                EXECUTE PROCEDURE querydefinitionstore_qexpression_clob_after_update();
+          
+              
+          
+              CREATE OR REPLACE FUNCTION querydefinitionstore_qexpression_clob_after_delete()
+          
+                RETURNS "trigger" AS
+          
+              $BODY$
+          
+              declare
+          
+              begin
+          
+                  delete from jbpm_active_clob where loid = cast(old.qexpression as oid);
+          
+                  return old;
+          
+              end;
+          
+              $BODY$
+          
+                LANGUAGE plpgsql VOLATILE;
+          
+              
+          
+              CREATE TRIGGER querydefinitionstore_qexpression_clob_after_delete_trigger
+          
+                AFTER DELETE
+          
+                ON querydefinitionstore
+          
+                FOR EACH ROW
+          
+                WHEN (old.qexpression IS NOT NULL)
+          
+                EXECUTE PROCEDURE querydefinitionstore_qexpression_clob_after_delete();
+          
+              
+          
+              -- deploymentstore.deploymentunit for CLOB
+          
+              
+          
+              CREATE OR REPLACE FUNCTION deploymentstore_deploymentunit_clob_before_insert()
+          
+                RETURNS "trigger" AS
+          
+              $BODY$
+          
+              declare
+          
+              begin
+          
+                  insert into jbpm_active_clob (loid) values (cast(new.deploymentunit as oid));
+          
+                  return new;
+          
+              end;
+          
+              $BODY$
+          
+                LANGUAGE plpgsql VOLATILE;
+          
+              
+          
+              CREATE TRIGGER deploymentstore_deploymentunit_clob_before_insert_trigger
+          
+                BEFORE INSERT
+          
+                ON deploymentstore
+          
+                FOR EACH ROW
+          
+                WHEN (new.deploymentunit IS NOT NULL)
+          
+                EXECUTE PROCEDURE deploymentstore_deploymentunit_clob_before_insert();
+          
+              
+          
+              CREATE OR REPLACE FUNCTION deploymentstore_deploymentunit_clob_before_update()
+          
+                RETURNS "trigger" AS
+          
+              $BODY$
+          
+              declare
+          
+              begin
+          
+                  insert into jbpm_active_clob (loid) values (cast(new.deploymentunit as oid));
+          
+                  return new;
+          
+              end;
+          
+              $BODY$
+          
+                LANGUAGE plpgsql VOLATILE;
+          
+              
+          
+              CREATE TRIGGER deploymentstore_deploymentunit_clob_before_update_trigger
+          
+                BEFORE UPDATE
+          
+                ON deploymentstore
+          
+                FOR EACH ROW
+          
+                WHEN (new.deploymentunit IS NOT NULL AND old.deploymentunit IS DISTINCT FROM new.deploymentunit)
+          
+                EXECUTE PROCEDURE deploymentstore_deploymentunit_clob_before_update();
+          
+              
+          
+              CREATE OR REPLACE FUNCTION deploymentstore_deploymentunit_clob_after_update()
+          
+                RETURNS "trigger" AS
+          
+              $BODY$
+          
+              declare
+          
+              begin
+          
+                  delete from jbpm_active_clob where loid = cast(old.deploymentunit as oid);
+          
+                  return new;
+          
+              end;
+          
+              $BODY$
+          
+                LANGUAGE plpgsql VOLATILE;
+          
+              
+          
+              CREATE TRIGGER deploymentstore_deploymentunit_clob_after_update_trigger
+          
+                AFTER UPDATE
+          
+                ON deploymentstore
+          
+                FOR EACH ROW
+          
+                WHEN (old.deploymentunit IS NOT NULL AND old.deploymentunit IS DISTINCT FROM new.deploymentunit)
+          
+                EXECUTE PROCEDURE deploymentstore_deploymentunit_clob_after_update();
+          
+              
+          
+              CREATE OR REPLACE FUNCTION deploymentstore_deploymentunit_clob_after_delete()
+          
+                RETURNS "trigger" AS
+          
+              $BODY$
+          
+              declare
+          
+              begin
+          
+                  delete from jbpm_active_clob where loid = cast(old.deploymentunit as oid);
+          
+                  return old;
+          
+              end;
+          
+              $BODY$
+          
+                LANGUAGE plpgsql VOLATILE;
+          
+              
+          
+              CREATE TRIGGER deploymentstore_deploymentunit_clob_after_delete_trigger
+          
+                AFTER DELETE
+          
+                ON deploymentstore
+          
+                FOR EACH ROW
+          
+                WHEN (old.deploymentunit IS NOT NULL)
+          
+                EXECUTE PROCEDURE deploymentstore_deploymentunit_clob_after_delete();
+          
+              
+          
+              
+          
+                
+          
+              -- executionerrorinfo.error_info for CLOB
+          
+              
+          
+              CREATE OR REPLACE FUNCTION executionerrorinfo_error_info_clob_before_insert()
+          
+                RETURNS "trigger" AS
+          
+              $BODY$
+          
+              declare
+          
+              begin
+          
+                  insert into jbpm_active_clob (loid) values (cast(new.error_info as oid));
+          
+                  return new;
+          
+              end;
+          
+              $BODY$
+          
+                LANGUAGE plpgsql VOLATILE;
+          
+              
+          
+              CREATE TRIGGER executionerrorinfo_error_info_clob_before_insert_trigger
+          
+                BEFORE INSERT
+          
+                ON executionerrorinfo
+          
+                FOR EACH ROW
+          
+                WHEN (new.error_info IS NOT NULL)
+          
+                EXECUTE PROCEDURE executionerrorinfo_error_info_clob_before_insert();
+          
+              
+          
+              CREATE OR REPLACE FUNCTION executionerrorinfo_error_info_clob_before_update()
+          
+                RETURNS "trigger" AS
+          
+              $BODY$
+          
+              declare
+          
+              begin
+          
+                  insert into jbpm_active_clob (loid) values (cast(new.error_info as oid));
+          
+                  return new;
+          
+              end;
+          
+              $BODY$
+          
+                LANGUAGE plpgsql VOLATILE;
+          
+              
+          
+              CREATE TRIGGER executionerrorinfo_error_info_clob_before_update_trigger
+          
+                BEFORE UPDATE
+          
+                ON executionerrorinfo
+          
+                FOR EACH ROW
+          
+                WHEN (new.error_info IS NOT NULL AND old.error_info IS DISTINCT FROM new.error_info)
+          
+                EXECUTE PROCEDURE executionerrorinfo_error_info_clob_before_update();
+          
+              
+          
+              CREATE OR REPLACE FUNCTION executionerrorinfo_error_info_clob_after_update()
+          
+                RETURNS "trigger" AS
+          
+              $BODY$
+          
+              declare
+          
+              begin
+          
+                  delete from jbpm_active_clob where loid = cast(old.error_info as oid);
+          
+                  return new;
+          
+              end;
+          
+              $BODY$
+          
+                LANGUAGE plpgsql VOLATILE;
+          
+              
+          
+              CREATE TRIGGER executionerrorinfo_error_info_clob_after_update_trigger
+          
+                AFTER UPDATE
+          
+                ON executionerrorinfo
+          
+                FOR EACH ROW
+          
+                WHEN (old.error_info IS NOT NULL AND old.error_info IS DISTINCT FROM new.error_info)
+          
+                EXECUTE PROCEDURE executionerrorinfo_error_info_clob_after_update();
+          
+              
+          
+              CREATE OR REPLACE FUNCTION executionerrorinfo_error_info_clob_after_delete()
+          
+                RETURNS "trigger" AS
+          
+              $BODY$
+          
+              declare
+          
+              begin
+          
+                  delete from jbpm_active_clob where loid = cast(old.error_info as oid);
+          
+                  return old;
+          
+              end;
+          
+              $BODY$
+          
+                LANGUAGE plpgsql VOLATILE;
+          
+              
+          
+              CREATE TRIGGER executionerrorinfo_error_info_clob_after_delete_trigger
+          
+                AFTER DELETE
+          
+                ON executionerrorinfo
+          
+                FOR EACH ROW
+          
+                WHEN (old.error_info IS NOT NULL)
+          
+                EXECUTE PROCEDURE executionerrorinfo_error_info_clob_after_delete();  
+          
+      postgresql-springboot-jbpm-schema.sql: |-
+          
+              create sequence ATTACHMENT_ID_SEQ start 1 increment 1;
+          
+              create sequence AUDIT_ID_SEQ start 1 increment 1;
+          
+              create sequence BAM_TASK_ID_SEQ start 1 increment 50;
+          
+              create sequence BOOLEANEXPR_ID_SEQ start 1 increment 1;
+          
+              create sequence CASE_FILE_DATA_LOG_ID_SEQ start 1 increment 1;
+          
+              create sequence CASE_ID_INFO_ID_SEQ start 1 increment 50;
+          
+              create sequence CASE_ROLE_ASSIGN_LOG_ID_SEQ start 1 increment 1;
+          
+              create sequence COMMENT_ID_SEQ start 1 increment 1;
+          
+              create sequence CONTENT_ID_SEQ start 1 increment 1;
+          
+              create sequence CONTEXT_MAPPING_INFO_ID_SEQ start 1 increment 50;
+          
+              create sequence CORRELATION_KEY_ID_SEQ start 1 increment 50;
+          
+              create sequence CORRELATION_PROP_ID_SEQ start 1 increment 50;
+          
+              create sequence DEADLINE_ID_SEQ start 1 increment 1;
+          
+              create sequence DEPLOY_STORE_ID_SEQ start 1 increment 1;
+          
+              create sequence EMAILNOTIFHEAD_ID_SEQ start 1 increment 1;
+          
+              create sequence ERROR_INFO_ID_SEQ start 1 increment 50;
+          
+              create sequence ESCALATION_ID_SEQ start 1 increment 1;
+          
+              create sequence EXEC_ERROR_INFO_ID_SEQ start 1 increment 1;
+          
+              create sequence I18NTEXT_ID_SEQ start 1 increment 1;
+          
+              create sequence NODE_INST_LOG_ID_SEQ start 1 increment 1;
+          
+              create sequence NOTIFICATION_ID_SEQ start 1 increment 1;
+          
+              create sequence PROC_INST_LOG_ID_SEQ start 1 increment 1;
+          
+              create sequence PROCESS_INSTANCE_INFO_ID_SEQ start 1 increment 50;
+          
+              create sequence QUERY_DEF_ID_SEQ start 1 increment 1;
+          
+              create sequence REASSIGNMENT_ID_SEQ start 1 increment 1;
+          
+              create sequence REQUEST_INFO_ID_SEQ start 1 increment 50;
+          
+              create sequence SESSIONINFO_ID_SEQ start 1 increment 50;
+          
+              create sequence TASK_DEF_ID_SEQ start 1 increment 50;
+          
+              create sequence TASK_EVENT_ID_SEQ start 1 increment 50;
+          
+              create sequence TASK_ID_SEQ start 1 increment 1;
+          
+              create sequence TASK_VAR_ID_SEQ start 1 increment 1;
+          
+              create sequence VAR_INST_LOG_ID_SEQ start 1 increment 1;
+          
+              create sequence WORKITEMINFO_ID_SEQ start 1 increment 50;
+          
+              create table Attachment (id int8 not null, accessType int4, attachedAt timestamp, attachmentContentId int8 not null, contentType varchar(255), name varchar(255), attachment_size int4, attachedBy_id varchar(255), TaskData_Attachments_Id int8, primary key (id));
+          
+              create table AuditTaskImpl (id int8 not null, activationTime timestamp, actualOwner varchar(255), createdBy varchar(255), createdOn timestamp, deploymentId varchar(255), description varchar(255), dueDate timestamp, lastModificationDate timestamp, name varchar(255), parentId int8 not null, priority int4 not null, processId varchar(255), processInstanceId int8 not null, processSessionId int8 not null, status varchar(255), taskId int8, workItemId int8, primary key (id));
+          
+              create table BAMTaskSummary (pk int8 not null, createdDate timestamp, duration int8, endDate timestamp, processInstanceId int8 not null, startDate timestamp, status varchar(255), taskId int8 not null, taskName varchar(255), userId varchar(255), OPTLOCK int4, primary key (pk));
+          
+              create table BooleanExpression (id int8 not null, expression text, type varchar(255), Escalation_Constraints_Id int8, primary key (id));
+          
+              create table CaseFileDataLog (id int8 not null, caseDefId varchar(255), caseId varchar(255), itemName varchar(255), itemType varchar(255), itemValue varchar(255), lastModified timestamp, lastModifiedBy varchar(255), primary key (id));
+          
+              create table CaseIdInfo (id int8 not null, caseIdPrefix varchar(255), currentValue int8, primary key (id));
+          
+              create table CaseRoleAssignmentLog (id int8 not null, caseId varchar(255), entityId varchar(255), processInstanceId int8 not null, roleName varchar(255), type int4 not null, primary key (id));
+          
+              create table Content (id int8 not null, content oid, primary key (id));
+          
+              create table ContextMappingInfo (mappingId int8 not null, CONTEXT_ID varchar(255) not null, KSESSION_ID int8 not null, OWNER_ID varchar(255), OPTLOCK int4, primary key (mappingId));
+          
+              create table CorrelationKeyInfo (keyId int8 not null, name varchar(255) not null, processInstanceId int8 not null, OPTLOCK int4, primary key (keyId));
+          
+              create table CorrelationPropertyInfo (propertyId int8 not null, name varchar(255), value varchar(255), OPTLOCK int4, correlationKey_keyId int8, primary key (propertyId));
+          
+              create table Deadline (id int8 not null, deadline_date timestamp, escalated int2, Deadlines_StartDeadLine_Id int8, Deadlines_EndDeadLine_Id int8, primary key (id));
+          
+              create table Delegation_delegates (task_id int8 not null, entity_id varchar(255) not null);
+          
+              create table DeploymentStore (id int8 not null, attributes varchar(255), DEPLOYMENT_ID varchar(255), deploymentUnit text, state int4, updateDate timestamp, primary key (id));
+          
+              create table email_header (id int8 not null, body text, fromAddress varchar(255), language varchar(255), replyToAddress varchar(255), subject varchar(255), primary key (id));
+          
+              create table ErrorInfo (id int8 not null, message varchar(255), stacktrace varchar(5000), timestamp timestamp, REQUEST_ID int8 not null, primary key (id));
+          
+              create table Escalation (id int8 not null, name varchar(255), Deadline_Escalation_Id int8, primary key (id));
+          
+              create table EventTypes (InstanceId int8 not null, element varchar(255));
+          
+              create table ExecutionErrorInfo (id int8 not null, ERROR_ACK int2, ERROR_ACK_AT timestamp, ERROR_ACK_BY varchar(255), ACTIVITY_ID int8, ACTIVITY_NAME varchar(255), DEPLOYMENT_ID varchar(255), ERROR_INFO text, ERROR_DATE timestamp, ERROR_ID varchar(255), ERROR_MSG varchar(255), INIT_ACTIVITY_ID int8, JOB_ID int8, PROCESS_ID varchar(255), PROCESS_INST_ID int8, ERROR_TYPE varchar(255), primary key (id));
+          
+              create table I18NText (id int8 not null, language varchar(255), shortText varchar(255), text text, Task_Subjects_Id int8, Task_Names_Id int8, Task_Descriptions_Id int8, Reassignment_Documentation_Id int8, Notification_Subjects_Id int8, Notification_Names_Id int8, Notification_Documentation_Id int8, Notification_Descriptions_Id int8, Deadline_Documentation_Id int8, primary key (id));
+          
+              create table NodeInstanceLog (id int8 not null, connection varchar(255), log_date timestamp, externalId varchar(255), nodeContainerId varchar(255), nodeId varchar(255), nodeInstanceId varchar(255), nodeName varchar(255), nodeType varchar(255), processId varchar(255), processInstanceId int8 not null, referenceId int8, slaCompliance int4, sla_due_date timestamp, type int4 not null, workItemId int8, primary key (id));
+          
+              create table Notification (DTYPE varchar(31) not null, id int8 not null, priority int4 not null, Escalation_Notifications_Id int8, primary key (id));
+          
+              create table Notification_BAs (task_id int8 not null, entity_id varchar(255) not null);
+          
+              create table Notification_email_header (Notification_id int8 not null, emailHeaders_id int8 not null, mapkey varchar(255) not null, primary key (Notification_id, mapkey));
+          
+              create table Notification_Recipients (task_id int8 not null, entity_id varchar(255) not null);
+          
+              create table OrganizationalEntity (DTYPE varchar(31) not null, id varchar(255) not null, primary key (id));
+          
+              create table PeopleAssignments_BAs (task_id int8 not null, entity_id varchar(255) not null);
+          
+              create table PeopleAssignments_ExclOwners (task_id int8 not null, entity_id varchar(255) not null);
+          
+              create table PeopleAssignments_PotOwners (task_id int8 not null, entity_id varchar(255) not null);
+          
+              create table PeopleAssignments_Recipients (task_id int8 not null, entity_id varchar(255) not null);
+          
+              create table PeopleAssignments_Stakeholders (task_id int8 not null, entity_id varchar(255) not null);
+          
+              create table ProcessInstanceInfo (InstanceId int8 not null, lastModificationDate timestamp, lastReadDate timestamp, processId varchar(255), processInstanceByteArray oid, startDate timestamp, state int4 not null, OPTLOCK int4, primary key (InstanceId));
+          
+              create table ProcessInstanceLog (id int8 not null, correlationKey varchar(255), duration int8, end_date timestamp, externalId varchar(255), user_identity varchar(255), outcome varchar(255), parentProcessInstanceId int8, processId varchar(255), processInstanceDescription varchar(255), processInstanceId int8 not null, processName varchar(255), processType int4, processVersion varchar(255), slaCompliance int4, sla_due_date timestamp, start_date timestamp, status int4, primary key (id));
+          
+              create table QueryDefinitionStore (id int8 not null, qExpression text, qName varchar(255), qSource varchar(255), qTarget varchar(255), primary key (id));
+          
+              create table Reassignment (id int8 not null, Escalation_Reassignments_Id int8, primary key (id));
+          
+              create table Reassignment_potentialOwners (task_id int8 not null, entity_id varchar(255) not null);
+          
+              create table RequestInfo (id int8 not null, commandName varchar(255), deploymentId varchar(255), executions int4 not null, businessKey varchar(255), message varchar(255), owner varchar(255), priority int4 not null, processInstanceId int8, requestData oid, responseData oid, retries int4 not null, status varchar(255), timestamp timestamp, primary key (id));
+          
+              create table SessionInfo (id int8 not null, lastModificationDate timestamp, rulesByteArray oid, startDate timestamp, OPTLOCK int4, primary key (id));
+          
+              create table Task (id int8 not null, archived int2, allowedToDelegate varchar(255), description varchar(255), formName varchar(255), name varchar(255), priority int4 not null, subTaskStrategy varchar(255), subject varchar(255), activationTime timestamp, createdOn timestamp, deploymentId varchar(255), documentAccessType int4, documentContentId int8 not null, documentType varchar(255), expirationTime timestamp, faultAccessType int4, faultContentId int8 not null, faultName varchar(255), faultType varchar(255), outputAccessType int4, outputContentId int8 not null, outputType varchar(255), parentId int8 not null, previousStatus int4, processId varchar(255), processInstanceId int8 not null, processSessionId int8 not null, skipable boolean not null, status varchar(255), workItemId int8 not null, taskType varchar(255), OPTLOCK int4, taskInitiator_id varchar(255), actualOwner_id varchar(255), createdBy_id varchar(255), primary key (id));
+          
+              create table task_comment (id int8 not null, addedAt timestamp, text text, addedBy_id varchar(255), TaskData_Comments_Id int8, primary key (id));
+          
+              create table TaskDef (id int8 not null, name varchar(255), priority int4 not null, primary key (id));
+          
+              create table TaskEvent (id int8 not null, logTime timestamp, message varchar(255), processInstanceId int8, taskId int8, type varchar(255), userId varchar(255), OPTLOCK int4, workItemId int8, correlationKey varchar(255), processType int4, primary key (id));
+          
+              create table TaskVariableImpl (id int8 not null, modificationDate timestamp, name varchar(255), processId varchar(255), processInstanceId int8, taskId int8, type int4, value varchar(4000), primary key (id));
+          
+              create table VariableInstanceLog (id int8 not null, log_date timestamp, externalId varchar(255), oldValue varchar(255), processId varchar(255), processInstanceId int8 not null, value varchar(255), variableId varchar(255), variableInstanceId varchar(255), primary key (id));
+          
+              create table WorkItemInfo (workItemId int8 not null, creationDate timestamp, name varchar(255), processInstanceId int8 not null, state int8 not null, OPTLOCK int4, workItemByteArray oid, primary key (workItemId));
+          
+              create index IDX_Attachment_Id on Attachment (attachedBy_id);
+          
+              create index IDX_Attachment_DataId on Attachment (TaskData_Attachments_Id);
+          
+              create index IDX_AuditTaskImpl_taskId on AuditTaskImpl (taskId);
+          
+              create index IDX_AuditTaskImpl_pInstId on AuditTaskImpl (processInstanceId);
+          
+              create index IDX_AuditTaskImpl_workItemId on AuditTaskImpl (workItemId);
+          
+              create index IDX_AuditTaskImpl_name on AuditTaskImpl (name);
+          
+              create index IDX_AuditTaskImpl_processId on AuditTaskImpl (processId);
+          
+              create index IDX_AuditTaskImpl_status on AuditTaskImpl (status);
+          
+              create index IDX_BAMTaskSumm_createdDate on BAMTaskSummary (createdDate);
+          
+              create index IDX_BAMTaskSumm_duration on BAMTaskSummary (duration);
+          
+              create index IDX_BAMTaskSumm_endDate on BAMTaskSummary (endDate);
+          
+              create index IDX_BAMTaskSumm_pInstId on BAMTaskSummary (processInstanceId);
+          
+              create index IDX_BAMTaskSumm_startDate on BAMTaskSummary (startDate);
+          
+              create index IDX_BAMTaskSumm_status on BAMTaskSummary (status);
+          
+              create index IDX_BAMTaskSumm_taskId on BAMTaskSummary (taskId);
+          
+              create index IDX_BAMTaskSumm_taskName on BAMTaskSummary (taskName);
+          
+              create index IDX_BAMTaskSumm_userId on BAMTaskSummary (userId);
+          
+              create index IDX_BoolExpr_Id on BooleanExpression (Escalation_Constraints_Id);
+          
+              alter table CaseIdInfo add constraint UKftvt225gyxpjnl3d06alqkqyj unique (caseIdPrefix);
+          
+              create index IDX_CMI_Context on ContextMappingInfo (CONTEXT_ID);
+          
+              create index IDX_CMI_KSession on ContextMappingInfo (KSESSION_ID);
+          
+              create index IDX_CMI_Owner on ContextMappingInfo (OWNER_ID);
+          
+              alter table CorrelationKeyInfo add constraint IDX_CorrelationKeyInfo_name unique (name);
+          
+              create index IDX_CorrPropInfo_Id on CorrelationPropertyInfo (correlationKey_keyId);
+          
+              create index IDX_Deadline_StartId on Deadline (Deadlines_StartDeadLine_Id);
+          
+              create index IDX_Deadline_EndId on Deadline (Deadlines_EndDeadLine_Id);
+          
+              create index IDX_Delegation_EntityId on Delegation_delegates (entity_id);
+          
+              create index IDX_Delegation_TaskId on Delegation_delegates (task_id);
+          
+              alter table DeploymentStore add constraint UK85rgskt09thd8mkkfl3tb0y81 unique (DEPLOYMENT_ID);
+          
+              create index IDX_ErrorInfo_Id on ErrorInfo (REQUEST_ID);
+          
+              create index IDX_Escalation_Id on Escalation (Deadline_Escalation_Id);
+          
+              create index IDX_EventTypes_Id on EventTypes (InstanceId);
+          
+              create index IDX_EventTypes_element on EventTypes (element);
+          
+              create index IDX_ErrorInfo_pInstId on ExecutionErrorInfo (PROCESS_INST_ID);
+          
+              create index IDX_ErrorInfo_errorAck on ExecutionErrorInfo (ERROR_ACK);
+          
+              create index IDX_I18NText_SubjId on I18NText (Task_Subjects_Id);
+          
+              create index IDX_I18NText_NameId on I18NText (Task_Names_Id);
+          
+              create index IDX_I18NText_DescrId on I18NText (Task_Descriptions_Id);
+          
+              create index IDX_I18NText_ReassignId on I18NText (Reassignment_Documentation_Id);
+          
+              create index IDX_I18NText_NotSubjId on I18NText (Notification_Subjects_Id);
+          
+              create index IDX_I18NText_NotNamId on I18NText (Notification_Names_Id);
+          
+              create index IDX_I18NText_NotDocId on I18NText (Notification_Documentation_Id);
+          
+              create index IDX_I18NText_NotDescrId on I18NText (Notification_Descriptions_Id);
+          
+              create index IDX_I18NText_DeadDocId on I18NText (Deadline_Documentation_Id);
+          
+              create index IDX_NInstLog_pInstId on NodeInstanceLog (processInstanceId);
+          
+              create index IDX_NInstLog_nodeType on NodeInstanceLog (nodeType);
+          
+              create index IDX_NInstLog_pId on NodeInstanceLog (processId);
+          
+              create index IDX_Not_EscId on Notification (Escalation_Notifications_Id);
+          
+              create index IDX_NotBAs_Entity on Notification_BAs (entity_id);
+          
+              create index IDX_NotBAs_Task on Notification_BAs (task_id);
+          
+              alter table Notification_email_header add constraint UK_ptaka5kost68h7l3wflv7w6y8 unique (emailHeaders_id);
+          
+              create index IDX_NotRec_Entity on Notification_Recipients (entity_id);
+          
+              create index IDX_NotRec_Task on Notification_Recipients (task_id);
+          
+              create index IDX_PAsBAs_Entity on PeopleAssignments_BAs (entity_id);
+          
+              create index IDX_PAsBAs_Task on PeopleAssignments_BAs (task_id);
+          
+              create index IDX_PAsExcl_Entity on PeopleAssignments_ExclOwners (entity_id);
+          
+              create index IDX_PAsExcl_Task on PeopleAssignments_ExclOwners (task_id);
+          
+              create index IDX_PAsPot_TaskEntity on PeopleAssignments_PotOwners (task_id, entity_id);
+          
+              create index IDX_PAsRecip_Entity on PeopleAssignments_Recipients (entity_id);
+          
+              create index IDX_PAsRecip_Task on PeopleAssignments_Recipients (task_id);
+          
+              create index IDX_PAsStake_Entity on PeopleAssignments_Stakeholders (entity_id);
+          
+              create index IDX_PAsStake_Task on PeopleAssignments_Stakeholders (task_id);
+          
+              create index IDX_PInstLog_duration on ProcessInstanceLog (duration);
+          
+              create index IDX_PInstLog_end_date on ProcessInstanceLog (end_date);
+          
+              create index IDX_PInstLog_extId on ProcessInstanceLog (externalId);
+          
+              create index IDX_PInstLog_user_identity on ProcessInstanceLog (user_identity);
+          
+              create index IDX_PInstLog_outcome on ProcessInstanceLog (outcome);
+          
+              create index IDX_PInstLog_parentPInstId on ProcessInstanceLog (parentProcessInstanceId);
+          
+              create index IDX_PInstLog_pId on ProcessInstanceLog (processId);
+          
+              create index IDX_PInstLog_pInsteDescr on ProcessInstanceLog (processInstanceDescription);
+          
+              create index IDX_PInstLog_pInstId on ProcessInstanceLog (processInstanceId);
+          
+              create index IDX_PInstLog_pName on ProcessInstanceLog (processName);
+          
+              create index IDX_PInstLog_pVersion on ProcessInstanceLog (processVersion);
+          
+              create index IDX_PInstLog_start_date on ProcessInstanceLog (start_date);
+          
+              create index IDX_PInstLog_status on ProcessInstanceLog (status);
+          
+              create index IDX_PInstLog_correlation on ProcessInstanceLog (correlationKey);
+          
+              alter table QueryDefinitionStore add constraint UK1dmy087nhbykucpgjipcnyluv unique (qName);
+          
+              create index IDX_Reassign_Esc on Reassignment (Escalation_Reassignments_Id);
+          
+              create index IDX_ReassignPO_Entity on Reassignment_potentialOwners (entity_id);
+          
+              create index IDX_ReassignPO_Task on Reassignment_potentialOwners (task_id);
+          
+              create index IDX_RequestInfo_status on RequestInfo (status);
+          
+              create index IDX_RequestInfo_owner on RequestInfo (owner);
+          
+              create index IDX_Task_Initiator on Task (taskInitiator_id);
+          
+              create index IDX_Task_ActualOwner on Task (actualOwner_id);
+          
+              create index IDX_Task_CreatedBy on Task (createdBy_id);
+          
+              create index IDX_Task_processInstanceId on Task (processInstanceId);
+          
+              create index IDX_Task_processId on Task (processId);
+          
+              create index IDX_Task_status on Task (status);
+          
+              create index IDX_Task_archived on Task (archived);
+          
+              create index IDX_Task_workItemId on Task (workItemId);
+          
+              create index IDX_TaskComments_CreatedBy on task_comment (addedBy_id);
+          
+              create index IDX_TaskComments_Id on task_comment (TaskData_Comments_Id);
+          
+              create index IDX_TaskVariableImpl_taskId on TaskVariableImpl (taskId);
+          
+              create index IDX_TaskVariableImpl_pInstId on TaskVariableImpl (processInstanceId);
+          
+              create index IDX_TaskVariableImpl_processId on TaskVariableImpl (processId);
+          
+              create index IDX_VInstLog_pInstId on VariableInstanceLog (processInstanceId);
+          
+              create index IDX_VInstLog_varId on VariableInstanceLog (variableId);
+          
+              create index IDX_VInstLog_pId on VariableInstanceLog (processId);
+          
+              alter table Attachment add constraint FKd5xpm81gxg8n40167lbu5rbfb foreign key (attachedBy_id) references OrganizationalEntity;
+          
+              alter table Attachment add constraint FKjj9psk52ifamilliyo16epwpc foreign key (TaskData_Attachments_Id) references Task;
+          
+              alter table BooleanExpression add constraint FKqth56a8k6d8pv6ngsu2vjp4kj foreign key (Escalation_Constraints_Id) references Escalation;
+          
+              alter table CorrelationPropertyInfo add constraint FKbchyl7kb8i6ghvi3dbr86bgo0 foreign key (correlationKey_keyId) references CorrelationKeyInfo;
+          
+              alter table Deadline add constraint FK361ggw230po88svgfasg36i2w foreign key (Deadlines_StartDeadLine_Id) references Task;
+          
+              alter table Deadline add constraint FKpeiadnoy228t35213t63c3imm foreign key (Deadlines_EndDeadLine_Id) references Task;
+          
+              alter table Delegation_delegates add constraint FKewkdyi0wrgy9byp6abyglpcxq foreign key (entity_id) references OrganizationalEntity;
+          
+              alter table Delegation_delegates add constraint FK85x3trafk3wfbrv719cafr591 foreign key (task_id) references Task;
+          
+              alter table ErrorInfo add constraint FKdarp6ushq06q39jmij3fdpdbs foreign key (REQUEST_ID) references RequestInfo;
+          
+              alter table Escalation add constraint FK37v8ova8ti6jiblda7n6j298e foreign key (Deadline_Escalation_Id) references Deadline;
+          
+              alter table EventTypes add constraint FKj0o3uve2nqo5yrjwrkc9jfttq foreign key (InstanceId) references ProcessInstanceInfo;
+          
+              alter table I18NText add constraint FKcd6eb4q62d9ab8p0di8pb99ch foreign key (Task_Subjects_Id) references Task;
+          
+              alter table I18NText add constraint FKiogka67sji8fk4cp7a369895i foreign key (Task_Names_Id) references Task;
+          
+              alter table I18NText add constraint FKrisdlmalotmk64mdeqpo4s5m0 foreign key (Task_Descriptions_Id) references Task;
+          
+              alter table I18NText add constraint FKqxgws3fnukyqlaet11tivqg5u foreign key (Reassignment_Documentation_Id) references Reassignment;
+          
+              alter table I18NText add constraint FKthf8ix3t3opf9hya1s04hwsx8 foreign key (Notification_Subjects_Id) references Notification;
+          
+              alter table I18NText add constraint FKg2jsybeuc8pbj8ek8xwxutuyo foreign key (Notification_Names_Id) references Notification;
+          
+              alter table I18NText add constraint FKp0m7uhipskrljktvfeubdgfid foreign key (Notification_Documentation_Id) references Notification;
+          
+              alter table I18NText add constraint FK6k8hmfvhko069970eghiy2ifp foreign key (Notification_Descriptions_Id) references Notification;
+          
+              alter table I18NText add constraint FK8wn7sw34q6bifsi1pvl2b1yyb foreign key (Deadline_Documentation_Id) references Deadline;
+          
+              alter table Notification add constraint FKoxq5uqfg4ylwyijsg2ubyflna foreign key (Escalation_Notifications_Id) references Escalation;
+          
+              alter table Notification_BAs add constraint FK378pb1cvjv54w4ljqpw99s3wr foreign key (entity_id) references OrganizationalEntity;
+          
+              alter table Notification_BAs add constraint FKb123fgeomc741s9yc014421yy foreign key (task_id) references Notification;
+          
+              alter table Notification_email_header add constraint FKd74pdu41avy2f7a8qyp7wn2n foreign key (emailHeaders_id) references email_header;
+          
+              alter table Notification_email_header add constraint FKfdnoyp8rl0kxu29l4pyaa5566 foreign key (Notification_id) references Notification;
+          
+              alter table Notification_Recipients add constraint FKot769nimyq1jvw0m61pgsq5g3 foreign key (entity_id) references OrganizationalEntity;
+          
+              alter table Notification_Recipients add constraint FKn7v944d0hw37bh0auv4gr3hsf foreign key (task_id) references Notification;
+          
+              alter table PeopleAssignments_BAs add constraint FKa90cdfgc4km384n1ataqigq67 foreign key (entity_id) references OrganizationalEntity;
+          
+              alter table PeopleAssignments_BAs add constraint FKt4xs0glwhbsa0xwg69r6xduv9 foreign key (task_id) references Task;
+          
+              alter table PeopleAssignments_ExclOwners add constraint FK5ituvd6t8uvp63hsx6282xo6h foreign key (entity_id) references OrganizationalEntity;
+          
+              alter table PeopleAssignments_ExclOwners add constraint FKqxbjm1b3dl7w8w2f2y6sk0fv8 foreign key (task_id) references Task;
+          
+              alter table PeopleAssignments_PotOwners add constraint FKsa3rrrjsm1qw98ajbbu2s7cjr foreign key (entity_id) references OrganizationalEntity;
+          
+              alter table PeopleAssignments_PotOwners add constraint FKh8oqmk4iuh2pmpgby6g8r3jd1 foreign key (task_id) references Task;
+          
+              alter table PeopleAssignments_Recipients add constraint FKrd0h9ud1bhs9waf2mdmiv6j2r foreign key (entity_id) references OrganizationalEntity;
+          
+              alter table PeopleAssignments_Recipients add constraint FK9gnbv6bplxkxoedj35vg8n7ir foreign key (task_id) references Task;
+          
+              alter table PeopleAssignments_Stakeholders add constraint FK9uy76cu650rg1nnkrtjwj1e9t foreign key (entity_id) references OrganizationalEntity;
+          
+              alter table PeopleAssignments_Stakeholders add constraint FKaeyk4nwslvx0jywjomjq7083i foreign key (task_id) references Task;
+          
+              alter table Reassignment add constraint FKessy30safh44b30f1cfoujv2k foreign key (Escalation_Reassignments_Id) references Escalation;
+          
+              alter table Reassignment_potentialOwners add constraint FKsqrmpvehlc4qe9i0km22nmkjl foreign key (entity_id) references OrganizationalEntity;
+          
+              alter table Reassignment_potentialOwners add constraint FKftegfexshix752bh2jfxf6bnh foreign key (task_id) references Reassignment;
+          
+              alter table Task add constraint FK48d1bfgwf0jqow1yk8ku4xcpi foreign key (taskInitiator_id) references OrganizationalEntity;
+          
+              alter table Task add constraint FKpmkxvqq63aed2y2boruu53a0s foreign key (actualOwner_id) references OrganizationalEntity;
+          
+              alter table Task add constraint FKexuboqnbla7jfyyesyo61ucmb foreign key (createdBy_id) references OrganizationalEntity;
+          
+              alter table task_comment add constraint FKqb4mkarf209y9546w7n75lb7a foreign key (addedBy_id) references OrganizationalEntity;
+          
+              alter table task_comment add constraint FKm2mwc1ukcpdsiqwgkoroy6ise foreign key (TaskData_Comments_Id) references Task;
+          
+              
+          
+      quartz_tables_postgres.sql: |-
+          
+              -- Thanks to Patrick Lightbody for submitting this...
+          
+              --
+          
+              -- In your Quartz properties file, you'll need to set 
+          
+              -- org.quartz.jobStore.driverDelegateClass = org.quartz.impl.jdbcjobstore.PostgreSQLDelegate
+          
+              
+          
+              CREATE TABLE qrtz_job_details
+          
+                (
+          
+                  SCHED_NAME VARCHAR(120) NOT NULL,
+          
+                  JOB_NAME  VARCHAR(200) NOT NULL,
+          
+                  JOB_GROUP VARCHAR(200) NOT NULL,
+          
+                  DESCRIPTION VARCHAR(250) NULL,
+          
+                  JOB_CLASS_NAME   VARCHAR(250) NOT NULL, 
+          
+                  IS_DURABLE BOOL NOT NULL,
+          
+                  IS_NONCONCURRENT BOOL NOT NULL,
+          
+                  IS_UPDATE_DATA BOOL NOT NULL,
+          
+                  REQUESTS_RECOVERY BOOL NOT NULL,
+          
+                  JOB_DATA BYTEA NULL,
+          
+                  PRIMARY KEY (SCHED_NAME,JOB_NAME,JOB_GROUP)
+          
+              );
+          
+              
+          
+              CREATE TABLE qrtz_triggers
+          
+                (
+          
+                  SCHED_NAME VARCHAR(120) NOT NULL,
+          
+                  TRIGGER_NAME VARCHAR(200) NOT NULL,
+          
+                  TRIGGER_GROUP VARCHAR(200) NOT NULL,
+          
+                  JOB_NAME  VARCHAR(200) NOT NULL, 
+          
+                  JOB_GROUP VARCHAR(200) NOT NULL,
+          
+                  DESCRIPTION VARCHAR(250) NULL,
+          
+                  NEXT_FIRE_TIME BIGINT NULL,
+          
+                  PREV_FIRE_TIME BIGINT NULL,
+          
+                  PRIORITY INTEGER NULL,
+          
+                  TRIGGER_STATE VARCHAR(16) NOT NULL,
+          
+                  TRIGGER_TYPE VARCHAR(8) NOT NULL,
+          
+                  START_TIME BIGINT NOT NULL,
+          
+                  END_TIME BIGINT NULL,
+          
+                  CALENDAR_NAME VARCHAR(200) NULL,
+          
+                  MISFIRE_INSTR SMALLINT NULL,
+          
+                  JOB_DATA BYTEA NULL,
+          
+                  PRIMARY KEY (SCHED_NAME,TRIGGER_NAME,TRIGGER_GROUP),
+          
+                  FOREIGN KEY (SCHED_NAME,JOB_NAME,JOB_GROUP) 
+          
+                  REFERENCES QRTZ_JOB_DETAILS(SCHED_NAME,JOB_NAME,JOB_GROUP) 
+          
+              );
+          
+              
+          
+              CREATE TABLE qrtz_simple_triggers
+          
+                (
+          
+                  SCHED_NAME VARCHAR(120) NOT NULL,
+          
+                  TRIGGER_NAME VARCHAR(200) NOT NULL,
+          
+                  TRIGGER_GROUP VARCHAR(200) NOT NULL,
+          
+                  REPEAT_COUNT BIGINT NOT NULL,
+          
+                  REPEAT_INTERVAL BIGINT NOT NULL,
+          
+                  TIMES_TRIGGERED BIGINT NOT NULL,
+          
+                  PRIMARY KEY (SCHED_NAME,TRIGGER_NAME,TRIGGER_GROUP),
+          
+                  FOREIGN KEY (SCHED_NAME,TRIGGER_NAME,TRIGGER_GROUP) 
+          
+                  REFERENCES QRTZ_TRIGGERS(SCHED_NAME,TRIGGER_NAME,TRIGGER_GROUP)
+          
+              );
+          
+              
+          
+              CREATE TABLE qrtz_cron_triggers
+          
+                (
+          
+                  SCHED_NAME VARCHAR(120) NOT NULL,
+          
+                  TRIGGER_NAME VARCHAR(200) NOT NULL,
+          
+                  TRIGGER_GROUP VARCHAR(200) NOT NULL,
+          
+                  CRON_EXPRESSION VARCHAR(120) NOT NULL,
+          
+                  TIME_ZONE_ID VARCHAR(80),
+          
+                  PRIMARY KEY (SCHED_NAME,TRIGGER_NAME,TRIGGER_GROUP),
+          
+                  FOREIGN KEY (SCHED_NAME,TRIGGER_NAME,TRIGGER_GROUP) 
+          
+                  REFERENCES QRTZ_TRIGGERS(SCHED_NAME,TRIGGER_NAME,TRIGGER_GROUP)
+          
+              );
+          
+              
+          
+              CREATE TABLE qrtz_simprop_triggers
+          
+                (          
+          
+                  SCHED_NAME VARCHAR(120) NOT NULL,
+          
+                  TRIGGER_NAME VARCHAR(200) NOT NULL,
+          
+                  TRIGGER_GROUP VARCHAR(200) NOT NULL,
+          
+                  STR_PROP_1 VARCHAR(512) NULL,
+          
+                  STR_PROP_2 VARCHAR(512) NULL,
+          
+                  STR_PROP_3 VARCHAR(512) NULL,
+          
+                  INT_PROP_1 INT NULL,
+          
+                  INT_PROP_2 INT NULL,
+          
+                  LONG_PROP_1 BIGINT NULL,
+          
+                  LONG_PROP_2 BIGINT NULL,
+          
+                  DEC_PROP_1 NUMERIC(13,4) NULL,
+          
+                  DEC_PROP_2 NUMERIC(13,4) NULL,
+          
+                  BOOL_PROP_1 BOOL NULL,
+          
+                  BOOL_PROP_2 BOOL NULL,
+          
+                  PRIMARY KEY (SCHED_NAME,TRIGGER_NAME,TRIGGER_GROUP),
+          
+                  FOREIGN KEY (SCHED_NAME,TRIGGER_NAME,TRIGGER_GROUP) 
+          
+                  REFERENCES QRTZ_TRIGGERS(SCHED_NAME,TRIGGER_NAME,TRIGGER_GROUP)
+          
+              );
+          
+              
+          
+              CREATE TABLE qrtz_blob_triggers
+          
+                (
+          
+                  SCHED_NAME VARCHAR(120) NOT NULL,
+          
+                  TRIGGER_NAME VARCHAR(200) NOT NULL,
+          
+                  TRIGGER_GROUP VARCHAR(200) NOT NULL,
+          
+                  BLOB_DATA BYTEA NULL,
+          
+                  PRIMARY KEY (SCHED_NAME,TRIGGER_NAME,TRIGGER_GROUP),
+          
+                  FOREIGN KEY (SCHED_NAME,TRIGGER_NAME,TRIGGER_GROUP) 
+          
+                      REFERENCES QRTZ_TRIGGERS(SCHED_NAME,TRIGGER_NAME,TRIGGER_GROUP)
+          
+              );
+          
+              
+          
+              CREATE TABLE qrtz_calendars
+          
+                (
+          
+                  SCHED_NAME VARCHAR(120) NOT NULL,
+          
+                  CALENDAR_NAME  VARCHAR(200) NOT NULL, 
+          
+                  CALENDAR BYTEA NOT NULL,
+          
+                  PRIMARY KEY (SCHED_NAME,CALENDAR_NAME)
+          
+              );
+          
+              
+          
+              
+          
+              CREATE TABLE qrtz_paused_trigger_grps
+          
+                (
+          
+                  SCHED_NAME VARCHAR(120) NOT NULL,
+          
+                  TRIGGER_GROUP  VARCHAR(200) NOT NULL, 
+          
+                  PRIMARY KEY (SCHED_NAME,TRIGGER_GROUP)
+          
+              );
+          
+              
+          
+              CREATE TABLE qrtz_fired_triggers 
+          
+                (
+          
+                  SCHED_NAME VARCHAR(120) NOT NULL,
+          
+                  ENTRY_ID VARCHAR(95) NOT NULL,
+          
+                  TRIGGER_NAME VARCHAR(200) NOT NULL,
+          
+                  TRIGGER_GROUP VARCHAR(200) NOT NULL,
+          
+                  INSTANCE_NAME VARCHAR(200) NOT NULL,
+          
+                  FIRED_TIME BIGINT NOT NULL,
+          
+                  SCHED_TIME BIGINT NOT NULL,
+          
+                  PRIORITY INTEGER NOT NULL,
+          
+                  STATE VARCHAR(16) NOT NULL,
+          
+                  JOB_NAME VARCHAR(200) NULL,
+          
+                  JOB_GROUP VARCHAR(200) NULL,
+          
+                  IS_NONCONCURRENT BOOL NULL,
+          
+                  REQUESTS_RECOVERY BOOL NULL,
+          
+                  PRIMARY KEY (SCHED_NAME,ENTRY_ID)
+          
+              );
+          
+              
+          
+              CREATE TABLE qrtz_scheduler_state 
+          
+                (
+          
+                  SCHED_NAME VARCHAR(120) NOT NULL,
+          
+                  INSTANCE_NAME VARCHAR(200) NOT NULL,
+          
+                  LAST_CHECKIN_TIME BIGINT NOT NULL,
+          
+                  CHECKIN_INTERVAL BIGINT NOT NULL,
+          
+                  PRIMARY KEY (SCHED_NAME,INSTANCE_NAME)
+          
+              );
+          
+              
+          
+              CREATE TABLE qrtz_locks
+          
+                (
+          
+                  SCHED_NAME VARCHAR(120) NOT NULL,
+          
+                  LOCK_NAME  VARCHAR(40) NOT NULL, 
+          
+                  PRIMARY KEY (SCHED_NAME,LOCK_NAME)
+          
+              );
+          
+              
+          
+              create index idx_qrtz_j_req_recovery on qrtz_job_details(SCHED_NAME,REQUESTS_RECOVERY);
+          
+              create index idx_qrtz_j_grp on qrtz_job_details(SCHED_NAME,JOB_GROUP);
+          
+              
+          
+              create index idx_qrtz_t_j on qrtz_triggers(SCHED_NAME,JOB_NAME,JOB_GROUP);
+          
+              create index idx_qrtz_t_jg on qrtz_triggers(SCHED_NAME,JOB_GROUP);
+          
+              create index idx_qrtz_t_c on qrtz_triggers(SCHED_NAME,CALENDAR_NAME);
+          
+              create index idx_qrtz_t_g on qrtz_triggers(SCHED_NAME,TRIGGER_GROUP);
+          
+              create index idx_qrtz_t_state on qrtz_triggers(SCHED_NAME,TRIGGER_STATE);
+          
+              create index idx_qrtz_t_n_state on qrtz_triggers(SCHED_NAME,TRIGGER_NAME,TRIGGER_GROUP,TRIGGER_STATE);
+          
+              create index idx_qrtz_t_n_g_state on qrtz_triggers(SCHED_NAME,TRIGGER_GROUP,TRIGGER_STATE);
+          
+              create index idx_qrtz_t_next_fire_time on qrtz_triggers(SCHED_NAME,NEXT_FIRE_TIME);
+          
+              create index idx_qrtz_t_nft_st on qrtz_triggers(SCHED_NAME,TRIGGER_STATE,NEXT_FIRE_TIME);
+          
+              create index idx_qrtz_t_nft_misfire on qrtz_triggers(SCHED_NAME,MISFIRE_INSTR,NEXT_FIRE_TIME);
+          
+              create index idx_qrtz_t_nft_st_misfire on qrtz_triggers(SCHED_NAME,MISFIRE_INSTR,NEXT_FIRE_TIME,TRIGGER_STATE);
+          
+              create index idx_qrtz_t_nft_st_misfire_grp on qrtz_triggers(SCHED_NAME,MISFIRE_INSTR,NEXT_FIRE_TIME,TRIGGER_GROUP,TRIGGER_STATE);
+          
+              
+          
+              create index idx_qrtz_ft_trig_inst_name on qrtz_fired_triggers(SCHED_NAME,INSTANCE_NAME);
+          
+              create index idx_qrtz_ft_inst_job_req_rcvry on qrtz_fired_triggers(SCHED_NAME,INSTANCE_NAME,REQUESTS_RECOVERY);
+          
+              create index idx_qrtz_ft_j_g on qrtz_fired_triggers(SCHED_NAME,JOB_NAME,JOB_GROUP);
+          
+              create index idx_qrtz_ft_jg on qrtz_fired_triggers(SCHED_NAME,JOB_GROUP);
+          
+              create index idx_qrtz_ft_t_g on qrtz_fired_triggers(SCHED_NAME,TRIGGER_NAME,TRIGGER_GROUP);
+          
+              create index idx_qrtz_ft_tg on qrtz_fired_triggers(SCHED_NAME,TRIGGER_GROUP);
+          
+              
+          
+              
+          
+              commit;
+          
+              
+          
+      task_assigning_tables_postgresql.sql: |-
+          
+                  create table PlanningTask (
+          
+                      taskId int8 not null,
+          
+                      OPTLOCK int4,
+          
+                      assignedUser varchar(255),
+          
+                      taskIndex int4 not null,
+          
+                      lastModificationDate timestamp,
+          
+                      published int2 not null,
+          
+                      primary key (taskId)
+          
+                  );
+          
+              
+          
+                  create index IDX_PlanningTask_assignedUser on PlanningTask(assignedUser);
+          
+      wait_for_postgresql.sh: |-
+          
+              #!/bin/sh
+          
+              
+          
+              # wait-for-postgres.sh
+          
+              set -e
+          
+              cmd="$@"
+          
+              timer="5"
+          
+              echo "Path is: $PATH"
+          
+              echo "When postgres is available, we will run this command: $cmd"
+          
+              echo "Waiting for PostgreSQL at: $POSTGRESQL_SERVICE"
+          
+              until pg_isready -h $POSTGRESQL_SERVICE 2>/dev/null; do
+          
+                echo "Postgres is unavailable - sleeping for $timer seconds"
+          
+                sleep $timer
+          
+              done
+          
+              echo "Postgres is up - executing command"
+          
+              exec $cmd
+          
+
+  - apiVersion: v1
+    kind: Secret
+    metadata:
+      name: psql-rhpam
+      namespace: sepsis-demo
+    type: Opaque
+    data: 
+      database-user: cmhwYW0=
+      database-password: cmhwYW0=
+      database-name: cmhwYW0=
+  
+  - kind: Service
+    apiVersion: v1
+    metadata:
+      name: psql-rhpam
+      annotations:
+        template.openshift.io/expose-uri: postgres://{.spec.clusterIP}:{.spec.ports[?(.name=="postgresql")].port}
+      labels:
+        app: psql-rhpam
+    spec:
+      ports:
+      - name: postgresql
+        protocol: TCP
+        port: 5432
+        targetPort: 5432
+        nodePort: 0
+      selector:
+        name: psql-rhpam
+      type: ClusterIP
+      sessionAffinity: None
+    status:
+      loadBalancer: {}
+
+  - kind: PersistentVolumeClaim
+    apiVersion: v1
+    metadata:
+      name: psql-rhpam
+      labels:
+        app: psql-rhpam
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 5Gi
+
+           
+  - kind: DeploymentConfig
+    apiVersion: apps.openshift.io/v1
+    metadata:
+      name: psql-rhpam
+      labels:
+        app: psql-rhpam
+        app.kubernetes.io/part-of: datatier
+    spec:
+      strategy:
+        recreateParams:
+          post:
+            execNewPod:
+              command: 
+              - /bin/bash
+              - /tmp/init-files/wait_for_postgresql.sh
+              - /tmp/init-files/create_database.sh
+              containerName: postgresql
+              volumes:
+              - init-volume
+            failurePolicy: Abort
+          timeoutSeconds: 600
+        resources: {}
+        type: Recreate
+      triggers:
+      - type: ImageChange
+        imageChangeParams:
+          automatic: true
+          containerNames:
+          - postgresql
+          from:
+            kind: ImageStreamTag
+            name: postgresql:12-el8
+            namespace: "openshift"
+          lastTriggeredImage: ''
+      - type: ConfigChange
+      replicas: 1
+      selector:
+        name: psql-rhpam
+      template:
+        metadata:
+          labels:
+            name: psql-rhpam
+            app: psql-rhpam
+        spec:
+          serviceAccountName: "psql-rhpam"
+          containers:
+          - name: postgresql
+            image: " "
+            ports:
+            - containerPort: 5432
+              protocol: TCP
+            readinessProbe:
+              timeoutSeconds: 1
+              initialDelaySeconds: 5
+              exec:
+                command:
+                - "/bin/sh"
+                - "-i"
+                - "-c"
+                - psql -h 127.0.0.1 -U rhpam -q -d rhpam -c
+                  'SELECT 1'
+            livenessProbe:
+              timeoutSeconds: 1
+              initialDelaySeconds: 30
+              tcpSocket:
+                port: 5432
+            env:
+            - name: POSTGRESQL_USER
+              valueFrom:
+                secretKeyRef:
+                  name:  psql-rhpam 
+                  key: database-user
+            - name: POSTGRESQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name:  psql-rhpam 
+                  key: database-password
+            - name: POSTGRESQL_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: psql-rhpam 
+                  key: database-name
+            - name: POSTGRESQL_SERVICE
+              value: psql-rhpam
+            - name: POSTGRESQL_MAX_PREPARED_TRANSACTIONS
+              value: "100"
+            - name: POSTGRESQL_MAX_CONNECTIONS
+              value: "100"
+            resources:
+              requests:
+                cpu: '100m'
+                memory: '256Mi'
+              limits:
+                cpu: '1'
+                memory: '512Mi'
+            volumeMounts:
+            - name: "psql-rhpam-data"
+              mountPath: "/var/lib/pgsql/data"
+            - name: init-volume
+              mountPath: /tmp/init-files
+            terminationMessagePath: "/dev/termination-log"
+            imagePullPolicy: IfNotPresent
+            securityContext:
+              capabilities: {}
+              privileged: false
+          volumes:
+          - name: "psql-rhpam-data"
+            persistentVolumeClaim:
+              claimName: "psql-rhpam"
+          - configMap:
+              defaultMode: 493
+              name: psql-rhpam-init
+            name: init-volume
+          restartPolicy: Always
+          dnsPolicy: ClusterFirst
+---
+# Source: rhpam/templates/rhpam-sepsisdetection.yaml
+kind: List
+apiVersion: v1
+items:
+- apiVersion: v1
+  kind: Service
+  metadata:
+    labels:
+      app: sepsisdetection-rhpam
+      expose: "true"
+    name: sepsisdetection-rhpam
+  spec:
+    ports:
+      - name: http
+        port: 8080
+        protocol: TCP
+        targetPort: 8080
+    selector:
+      group: fhir-server
+      app: sepsisdetection-rhpam
+    sessionAffinity: None
+    type: ClusterIP
+- apiVersion: apps.openshift.io/v1
+  kind: DeploymentConfig
+  metadata:
+    labels:
+      app: sepsisdetection-rhpam
+    name: sepsisdetection-rhpam
+  spec:
+    replicas: 1
+    revisionHistoryLimit: 2
+    selector:
+      group: fhir-server
+      app: sepsisdetection-rhpam
+    strategy:
+      activeDeadlineSeconds: 21600
+      resources: {}
+      rollingParams:
+        intervalSeconds: 1
+        maxSurge: 25%
+        maxUnavailable: 25%
+        timeoutSeconds: 3600
+        updatePeriodSeconds: 1
+      type: Rolling
+    template:
+      metadata:
+        labels:
+          group: fhir-server
+          app: sepsisdetection-rhpam
+      spec:
+        containers:
+          - env:
+            - name: JAVA_MAX_MEM_RATIO
+              value: "60"
+            - name: JAVA_INITIAL_MEM_RATIO
+              value: "0"
+            - name: GC_MAX_METASPACE_SIZE
+              value: "500"
+            - name: KUBERNETES_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+            - name: SPRING_CONFIG_LOCATION
+              value: file:///deployments/config/application.properties
+
+            # org.kie.server.repo: dictates to kie-server where to find its KIE container configuration file
+            # kie.maven.settings.custom: dictates to kie-server where to fine its artifact repo of KJars
+            - name: JAVA_OPTS_APPEND
+              value: '-Dorg.kie.server.repo=/deployments/config -Dkie.maven.settings.custom=/m2/settings.xml'
+
+            - name: MAVEN_MIRROR_URL
+              
+            imagePullPolicy: IfNotPresent
+            name: sepsisdetection-rhpam
+            livenessProbe:
+              failureThreshold: 3
+              successThreshold: 1
+              exec:
+                command:
+                - "/bin/bash"
+                - "-c"
+                - "curl --fail --silent -u 'admin:user' http://localhost:8080/rest/server/healthcheck"
+              initialDelaySeconds: 30
+              periodSeconds: 60
+              timeoutSeconds: 3
+            readinessProbe:
+              failureThreshold: 3
+              successThreshold: 1
+              exec:
+                command:
+                - "/bin/bash"
+                - "-c"
+                - "curl --fail --silent -u 'admin:user' http://localhost:8080/rest/server/healthcheck"
+              initialDelaySeconds: 30
+              periodSeconds: 60
+              timeoutSeconds: 3
+            resources:
+              limits:
+                cpu: '1'
+                memory: '2Gi'
+              requests:
+                cpu: '250m'
+                memory: '250Mi'
+            securityContext:
+              privileged: false
+            terminationMessagePath: /dev/termination-log
+            terminationMessagePolicy: File
+            volumeMounts:
+            - mountPath: /deployments/config
+              name: config
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        serviceAccount: sepsisdetection-rhpam
+        serviceAccountName: sepsisdetection-rhpam
+        terminationGracePeriodSeconds: 30
+        volumes:
+        - configMap:
+            defaultMode: 420
+            items:
+              - key: application.properties
+                path: application.properties
+              - key: jbpm-quartz.properties
+                path: jbpm-quartz.properties
+              - key: logback-spring.xml
+                path: logback-spring.xml
+              - key: sepsisdetection-rhpam.xml
+                path: sepsisdetection-rhpam.xml
+            name: sepsisdetection-rhpam
+          name: config
+    triggers:
+      - type: ConfigChange
+      - imageChangeParams:
+          automatic: true
+          containerNames:
+            - sepsisdetection-rhpam
+          from:
+            kind: ImageStreamTag
+            name: "sepsisdetection-rhpam:0.0.13"
+        type: ImageChange
+---
+# Source: rhpam/templates/rhpam-server.yaml
+kind: List
+apiVersion: v1
+namespace: sepsis-demo 
+items:
+  - apiVersion: v1
+    kind: ServiceAccount
+    metadata:
+        name: "sepsisdetection-rhpam"
+        namespace: "sepsis-demo" 
+
+  - apiVersion: rbac.authorization.k8s.io/v1
+    kind: RoleBinding
+    metadata:
+        name: "sepsisdetection-rhpam-admin"
+        namespace: "sepsis-demo"
+    roleRef:
+        apiGroup: rbac.authorization.k8s.io
+        kind: ClusterRole
+        name: admin
+    subjects:
+    - kind: ServiceAccount
+      name: "sepsisdetection-rhpam-admin"
+      namespace: "sepsis-demo"      
+
+
+  - apiVersion: v1
+    kind: ConfigMap
+    metadata:
+        name: "sepsisdetection-rhpam"
+    data:
+        application.properties: |-
+                spring.datasource.url=jdbc:postgresql://psql-rhpam:5432/rhpam
+                spring.datasource.username=rhpam
+                spring.datasource.password=rhpam
+                
+                jbpm.quartz.configuration=file:./config/jbpm-quartz.properties
+                quartz.clustered=false
+                quartz.datasource.username=rhpam
+                quartz.datasource.password=rhpam
+                quartz.datasource.url=jdbc:postgresql://psql-rhpam:5432/rhpam
+                quartz.datasource.dbcp2.maxTotal=20
+                
+                # https://github.com/Emergency-Response-Demo/responder-service/issues/3
+                narayana.dbcp.maxTotal=20
+                narayana.transaction-manager-id=1
+                narayana.default-timeout=120
+                narayana.dbcp.enabled=true
+                narayana.dbcp.defaultAutoCommit=false
+                
+                logging.config=file:./config/logback-spring.xml
+                logging.level.org.jbpm.executor.impl=WARN
+                logging.level.org.apache.kafka.clients=WARN
+                logging.level.org.hibernate.orm.deprecation=ERROR
+                logging.level.com.redhat.naps.process=DEBUG
+                logging.level.org.jbpm.process.audit=ERROR
+                logging.level.ca.uhn.fhir.context=INFO
+                
+                # TO-DO: org.jbpm.kie.services.impl.KModuleDeploymentService.processClassloader(KModuleDeploymentService.java:479)  is throwing warnings between kjar is deployed to kie-server
+                #    ie: WARN  [main] org.reflections.ReflectionUtils: could not get type for name org.springframework.web.reactive.result.view.RequestDataValueProcessor from any class loader
+                # although, these warning do seem benign
+                logging.level.org.reflections=ERROR
+                
+                
+                #######     Kafka       #########
+                kafka.bootstrap-address=kafka-cluster-kafka-bootstrap.sepsis-demo.svc.cluster.local:9092
+                kafka.group-id=sepsisdetection-rhpam
+                kafka.concurrency=5
+                
+                # Topic that Debezium streams to
+                listener.destination.debezium-stream=fhir.public.hfj_res_ver
+                #################################
+                
+                
+                #####   kieserver   ##########
+                server.address=0.0.0.0
+                server.port=8080
+                kieserver.location=http://sepsisdetection-rhpam:8080/rest/server
+                
+                kieserver.swagger.enabled=true
+                
+                # https://docs.spring.io/spring-boot/docs/current/reference/htmlsingle/#common-application-properties
+                cxf.path=/rest
+                kieserver.serverId=sepsisdetection-rhpam
+                kieserver.serverName=FHIR Enabled BPM Service
+                kieserver.restContextPath=/rest
+                
+                kieserver.dmn.enabled=false
+                kieserver.drools.enabled=false
+                kieserver.scenariosimulation.enabled=false
+                kieserver.jbpm.enabled=true
+                kieserver.jbpmui.enabled=true
+                kieserver.casemgmt.enabled=true
+                kieserver.prometheus.enabled=true
+                
+                
+                #######     security     ##########
+                basic.auth.rhpam.admin.passwd=user
+                basic.auth.rhpam.kieserver.passwd=kieserver
+                
+                # https://www.keycloak.org/docs/latest/securing_apps/#_java_adapter_config
+                keycloak.auth-server-url=https://sso-sepsis-demo.hub.example.com/auth
+                keycloak.realm=user1-sepsis
+                keycloak.resource=sepsisdetection
+                keycloak.public-client=true
+                keycloak.principal-attribute=preferred_username
+                keycloak.enable-basic-auth=false
+                
+                # For demo environments with RH-SSO routes not secured using a well known certificate authority, disable cert verification
+                keycloak.disable-trust-manager=true
+                
+                com.redhat.naps.sso.available.groups=Administrators,doctor,provider,patient
+                ##############################
+                
+                
+                
+                
+                #####   sepsisdetection-rhpam  ##########
+                sepsisdetection.deployment.id=sepsisdetection-kjar-1.0.0
+                sepsisdetection.process.id=sepsisdetection
+                AIModel.server.url=http://sepsis-detection-00001-private:80
+                fhir.server.url=http://fhir-server:8080
+                
+                sepsisdetection.executor.wih.defaultCommandDelaySeconds=1
+                
+                outgoing.destination.generateRiskAssessmentCommand=risk-assessment-command
+                
+                ########################################
+                
+          
+        jbpm-quartz.properties: |-
+          #============================================================================ 
+          # Configure Main Scheduler Properties 
+          #============================================================================ 
+           
+          org.quartz.scheduler.instanceName = SpringBootScheduler 
+          org.quartz.scheduler.instanceId = NON_CLUSTERED 
+           
+           
+          #============================================================================ 
+          # Configure ThreadPool 
+          #============================================================================ 
+           
+          org.quartz.threadPool.class = org.quartz.simpl.SimpleThreadPool 
+          org.quartz.threadPool.threadCount = 20 
+          org.quartz.threadPool.threadPriority = 5 
+           
+          #============================================================================ 
+          # Configure JobStore 
+          #============================================================================ 
+           
+          org.quartz.jobStore.misfireThreshold = 60000 
+           
+          org.quartz.jobStore.class=org.quartz.impl.jdbcjobstore.JobStoreCMT 
+          org.quartz.jobStore.driverDelegateClass=org.jbpm.process.core.timer.impl.quartz.DeploymentsAwarePostgreSQLDelegate 
+          org.quartz.jobStore.dataSource=xaDataSource 
+          org.quartz.jobStore.nonManagedTXDataSource=nonXaDataSource 
+          org.quartz.jobStore.useProperties=false 
+          org.quartz.jobStore.tablePrefix=QRTZ_ 
+           
+           
+          org.quartz.jobStore.isClustered=false 
+           
+           
+          org.quartz.dataSource.xaDataSource.connectionProvider.class = org.jbpm.springboot.quartz.SpringConnectionProvider 
+          org.quartz.dataSource.xaDataSource.dataSourceName = quartzDataSource 
+          org.quartz.dataSource.nonXaDataSource.connectionProvider.class = org.jbpm.springboot.quartz.SpringConnectionProvider 
+          org.quartz.dataSource.nonXaDataSource.dataSourceName = quartzNotManagedDataSource 
+           
+          
+        logback-spring.xml: |-
+          <?xml version="1.0" encoding="UTF-8"?> 
+          <configuration scan="true" scanPeriod="30 seconds"> 
+          <property name="CONSOLE_LOG_PATTERN" 
+          value="${CONSOLE_LOG_PATTERN:-%d{yyyy-MM-dd HH:mm:ss.SSS} ${LOG_LEVEL_PATTERN:-%5p} ${PID:- } --- [%15.15t] %-40.40logger{39} : %m%n}"/> 
+          <appender name="stdout" class="ch.qos.logback.core.ConsoleAppender"> 
+          <encoder> 
+          <pattern>${CONSOLE_LOG_PATTERN}</pattern> 
+          </encoder> 
+          </appender> 
+          <root level="INFO"> 
+          <appender-ref ref="stdout"/> 
+          </root> 
+          </configuration> 
+           
+          
+        sepsisdetection-rhpam.xml: |-
+          <kie-server-state> 
+          <controllers/> 
+          <configuration> 
+          <configItems> 
+          <config-item> 
+          <name>org.kie.server.location</name> 
+          <value>http://localhost:8080/rest/server</value> 
+          <type>java.lang.String</type> 
+          </config-item> 
+          <config-item> 
+          <name>org.kie.server.id</name> 
+          <value>sepsisdetection-rhpam</value> 
+          <type>java.lang.String</type> 
+          </config-item> 
+          <config-item> 
+          <name>org.kie.server.controller</name> 
+          <value></value> 
+          <type>java.lang.String</type> 
+          </config-item> 
+          <config-item> 
+          <name>org.kie.server.repo</name> 
+          <value>/tmp</value> 
+          <type>java.lang.String</type> 
+          </config-item> 
+          </configItems> 
+          </configuration> 
+          <containers> 
+          <container> 
+          <containerId>sepsisdetection-kjar-1.0.0</containerId> 
+          <releaseId> 
+          <groupId>com.redhat.naps</groupId> 
+          <artifactId>sepsisdetection-kjar</artifactId> 
+          <version>1.0.0</version> 
+          </releaseId> 
+          <status>STARTED</status> 
+          <configItems/> 
+          <messages/> 
+          <containerAlias>sepsisdetection-kjar</containerAlias> 
+          </container> 
+          </containers> 
+          </kie-server-state> 
+           
+          
+  - apiVersion: image.openshift.io/v1
+    kind: ImageStream
+    metadata:
+        name: sepsisdetection-rhpam
+        labels:
+            app: sepsisdetection-rhpam
+    spec:
+        dockerImageRepository: quay.io/redhat_naps_da/sepsisdetection-rhpam
+---
+# Source: rhpam/templates/route.yml
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: sepsisdetection-rhpam
+spec:
+  host: sepsisdetection-rhpam-sepsis-demo.hub.example.com
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+  to:
+    kind: Service
+    name: sepsisdetection-rhpam
+  wildcardPolicy: None

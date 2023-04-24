@@ -1,0 +1,38 @@
+---
+# Source: sso/templates/keycloak-cr.yaml
+kind: Keycloak
+apiVersion: keycloak.org/v1alpha1
+metadata:
+  name: rhsso
+  labels:
+    app: rhsso
+  namespace: sepsis-demo
+spec:
+  instances: 1
+  extensions:
+    - https://github.com/aerogear/keycloak-metrics-spi/releases/download/2.5.3/keycloak-metrics-spi-2.5.3.jar
+  externalAccess:
+    enabled: False
+  profile: RHSSO
+---
+# Source: sso/templates/keyclock-route.yaml
+kind: Route
+apiVersion: route.openshift.io/v1
+metadata:
+  name: sso
+  labels:
+    app: keycloak
+  annotations:
+    openshift.io/host.generated: 'true'
+  namespace: sepsis-demo  
+spec:
+  to:
+    kind: Service
+    name: keycloak
+    weight: 100
+  port:
+    targetPort: keycloak
+  tls:
+    termination: reencrypt
+    insecureEdgeTerminationPolicy: Redirect
+  wildcardPolicy: None

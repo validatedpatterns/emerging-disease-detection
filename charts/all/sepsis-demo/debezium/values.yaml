@@ -1,0 +1,61 @@
+project_name: sepsis-demo
+kafka_cluster: kafka-cluster
+
+kafka_connect:
+  imagestream: debezium-postgres-connect
+  version: "3.1.0"
+  replicas: 1
+  requests:
+    cpu: 100m
+    memory: 250M
+  limits:  
+    cpu: 1
+    memory: 1G
+  liveness_probe:
+    initial_delay_seconds: 45
+    timeout_seconds: 10
+  readiness_probe:  
+    initial_delay_seconds: 15
+    timeout_seconds: 10
+
+kafka:
+  bootstrap_service: "kafka-cluster-kafka-bootstrap.{{ namespace_kafka_cluster }}.svc"
+  bootstrap_port: "9092"
+  bootstrap_address: "{{ kafka_bootstrap_service }}:{{ kafka_bootstrap_port }}"
+  connect: kafka-connect
+  connect_image: quay.io/redhat_naps_da/strimzi-debezium-postgresql:1.7.0-1.5.0.Final
+  topics: 
+    - name: kakfa-connect-offsets
+      partitions: 25
+      replicas: 3
+      config: '{"cleanup.policy": "compact"}'
+    - name: kakfa-connect-configs
+      partitions: 1
+      replicas: 3
+      config: '{"cleanup.policy": "compact"}'
+    - name: kakfa-connect-status
+      partitions: 5
+      replicas: 3
+      config: '{"cleanup.policy": "compact"}'    
+
+database: 
+  hapi:
+    psql_app_name: psql-fhir
+    psql_port: 5432
+    psql_user_name: fhir
+    psql_user_passwd: fhir
+    psql_db_name: fhir
+
+debezium:
+  name: debezium-fhir-server-pgsql
+  schema_whitelist: public
+  db_server_name: fhir
+  table_whitelist: public.hfj_res_ver
+  tasks_max: 1
+  build:
+    postgres_connector: https://maven.repository.redhat.com/ga/io/debezium/debezium-connector-postgres/1.9.5.Final-redhat-00001/debezium-connector-postgres-1.9.5.Final-redhat-00001-plugin.zip
+    apicurio: https://maven.repository.redhat.com/ga/io/apicurio/apicurio-registry-distro-connect-converter/2.0.3.Final-redhat-00002/apicurio-registry-distro-connect-converter-2.0.3.Final-redhat-00002.zip
+    debezium_scripting:  https://maven.repository.redhat.com/ga/io/debezium/debezium-scripting/1.9.5.Final-redhat-00001/debezium-scripting-1.9.5.Final-redhat-00001.zip
+    groovy: https://repo1.maven.org/maven2/org/codehaus/groovy/groovy/3.0.11/groovy-3.0.11.jar
+    groovy_jsr: https://repo1.maven.org/maven2/org/codehaus/groovy/groovy-jsr223/3.0.11/groovy-jsr223-3.0.11.jar
+    groovy_json: https://repo1.maven.org/maven2/org/codehaus/groovy/groovy-json/3.0.11/groovy-json-3.0.11.jar

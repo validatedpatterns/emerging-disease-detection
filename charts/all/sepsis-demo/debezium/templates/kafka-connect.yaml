@@ -1,0 +1,54 @@
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnect
+metadata:
+  name: {{ .Values.kafka.connect }}
+  namespace: {{ .Values.project_name }}
+  annotations:
+    strimzi.io/use-connector-resources: 'true'
+spec:
+  build:
+    output: 
+      type: imagestream
+      image: {{ printf "%s:latest" .Values.kafka_connect.imagestream }}
+    plugins: 
+      - name: debezium-connector-postgres
+        artifacts:
+          - type: zip
+            url: {{ .Values.debezium.build.postgres_connector}}
+          - type: zip
+            url: {{ .Values.debezium.build.apicurio }}
+          - type: zip
+            url: {{ .Values.debezium.build.debezium_scripting }}
+          - type: jar
+            url: {{ .Values.debezium.build.groovy }}
+          - type: jar
+            url: {{ .Values.debezium.build.groovy_jsr }}
+          - type: jar
+            url: {{ .Values.debezium.build.groovy_json }}
+  #version: {{ .Values.kafka_connect.version }}
+  replicas: {{ .Values.kafka_connect.replicas }}
+  bootstrapServers: {{ printf "kafka-cluster-kafka-bootstrap.%s.svc:%s" .Values.project_name  .Values.kafka.bootstrap_port}}
+  config:
+    group.id: {{ .Values.kafka.connect }}
+    offset.storage.topic: {{ printf "%s-offsets"  .Values.kafka.connect }}
+    config.storage.topic: {{ printf "%s-configs"  .Values.kafka.connect }}
+    status.storage.topic: {{ printf "%s-status"  .Values.kafka.connect }}
+    key.converter: org.apache.kafka.connect.json.JsonConverter
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    key.converter.schemas.enable: false
+    value.converter.schemas.enable: false
+    config.storage.replication.factor: 2
+    offset.storage.replication.factor: 2
+    status.storage.replication.factor: 1
+    topic.creation.enable: "false"
+    topic.creation.default.replication.factor: 3
+    topic.creation.default.partitions: 1
+    topic.creation.default.cleanup.policy: compact
+  jvmOptions:
+    gcLoggingEnabled: false
+  metricsConfig:
+    type: jmxPrometheusExporter
+    valueFrom:
+      configMapKeyRef:
+        name: {{ printf "%s-metrics" .Values.kafka.connect }}
+        key: metrics-config.yml

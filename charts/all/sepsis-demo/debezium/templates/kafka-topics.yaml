@@ -1,0 +1,18 @@
+---
+kind: List
+apiVersion: v1
+namespace: {{.Values.project_name}} 
+items:
+  {{ range $topics := .Values.kafka.topics }}
+  - apiVersion: kafka.strimzi.io/v1beta2
+    kind: KafkaTopic
+    metadata:
+        name: {{ $topics.name }}
+        namespace: {{ $.Values.project_name}}
+        labels:
+            strimzi.io/cluster: {{ $.Values.kafka_cluster }}
+    spec:
+        partitions: {{ $topics.partitions }}
+        replicas: {{ $topics.replicas }}
+        config: {{ $topics.config }}            
+  {{ end }}

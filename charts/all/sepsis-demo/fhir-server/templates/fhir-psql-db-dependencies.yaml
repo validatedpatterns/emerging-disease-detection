@@ -1,0 +1,86 @@
+---
+kind: List
+apiVersion: v1
+namespace: {{.Values.namespace}} 
+items:
+ - kind: PersistentVolumeClaim
+   apiVersion: v1
+   metadata:
+    name: {{.Values.plsql.psql_app_name}}
+    labels:
+      app: {{.Values.plsql.psql_app_name}}
+     
+   spec:
+    accessModes:
+    - ReadWriteOnce
+    resources:
+      requests:
+        storage: {{ .Values.plsql.postgresql_pv_capacity }}
+
+ - kind: ServiceAccount       
+   apiVersion: v1
+   metadata:
+      name: {{ .Values.plsql.postgresql_service_account }}
+      labels:
+            app: {{.Values.plsql.psql_app_name}}      
+
+ - kind: ConfigMap     
+   apiVersion: v1
+   metadata:
+      name: {{ .Values.configmap.postgres_configmap.name  }}
+      labels:
+            app: {{.Values.plsql.psql_app_name}}   
+   data:
+      create_database.sh: |-
+        {{ range .Files.Lines .Values.configmap.postgres_configmap.create_db_file }}
+            {{ . }}
+        {{ end }}
+      wait_for_postgresql.sh: |-   
+        {{ range .Files.Lines .Values.configmap.postgres_configmap.wait_for_psql_file }}
+            {{ . }}
+        {{ end }}
+
+ - kind: ConfigMap       
+   apiVersion: v1
+   metadata:
+      name: {{ .Values.configmap.debezium_configmap.name  }}
+      labels:
+            app: {{.Values.plsql.psql_app_name}}
+   data:
+      hapi-psql-debezium-conf.conf: |-
+          {{ range .Files.Lines .Values.configmap.debezium_configmap.d_conf_file }}
+            {{ . }}
+          {{ end }}
+
+ - kind: Secret
+   apiVersion: v1
+   metadata:
+        name: {{.Values.plsql.psql_app_name}}
+        labels:
+            app: {{.Values.plsql.psql_app_name}}
+   type: Opaque
+   data:
+        database-user: {{ .Values.plsql.psql_user_name | b64enc }}
+        database-password: {{ .Values.plsql.psql_user_passwd | b64enc }}
+        database-name: {{ .Values.plsql.psql_db_name | b64enc }}
+
+ - kind: Service       
+   apiVersion: v1
+   metadata:
+      name:  {{.Values.plsql.psql_app_name}}
+      annotations:
+        template.openshift.io/expose-uri: postgres://{.spec.clusterIP}:{.spec.ports[?(.name=="postgresql")].port}
+      labels:
+        app:  {{.Values.plsql.psql_app_name}}
+   spec:
+    ports:
+    - name: postgresql
+      protocol: TCP
+      port: 5432
+      targetPort: 5432
+      nodePort: 0
+    selector:
+      name:  {{.Values.plsql.psql_app_name}}
+    type: ClusterIP
+    sessionAffinity: None
+  
