@@ -1,0 +1,11 @@
+# Default values for sso.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+namespace: sepsis-demo
+
+keycloak:
+  name: rhsso
+  profile: RHSSO
+  metrics:
+    url: https://github.com/aerogear/keycloak-metrics-spi/releases/download/2.5.3/keycloak-metrics-spi-2.5.3.jar

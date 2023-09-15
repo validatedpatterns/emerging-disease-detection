@@ -1,0 +1,8 @@
+application:
+  name: sepsis-detection
+  port: 8080
+  image: 
+     name: quay.io/redhat_naps_da/sepsis-detection:latest
+  knative:
+    min: 1
+    max: 10   

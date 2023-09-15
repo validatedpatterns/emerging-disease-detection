@@ -1,0 +1,7 @@
+namespace: sepsis-demo
+application_name: "kafdrop"
+image_name: "docker.io/obsidiandynamics/kafdrop"
+image_tag: 3.27.0
+kafdrop_application_template: kafdropservice.yml
+binary_imagestream_template: binary-imagestream.yml
+kafka_bootstrap_address: kafka-cluster-kafka-bootstrap.sepsis-demo.svc.cluster.local:9092

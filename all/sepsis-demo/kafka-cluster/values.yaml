@@ -1,0 +1,102 @@
+project_name: sepsis-demo
+kafka_cluster: kafka-cluster
+kafka_metrics_configmap : kafka-metrics
+
+zookeeper:
+  replicas: 3
+  storage_type: persistent
+  volume_capacity: 1Gi
+  delete_claim: "true"
+  requests:
+    cpu: 100m
+    memory: 100M
+  limits:  
+    cpu: 500m
+    memory: 250M
+  readiness_probe:    
+    initial_delay_seconds: 15
+    timeout_seconds: 5
+  liveness_probe:  
+    initial_delay_seconds: 30
+    timeout_seconds: 5
+
+kafka:
+  version: 3.1.0
+  log_message_format_version: "3.1"
+  replicas: 3
+  # persistent, ephemeral
+  storage_type: persistent
+  volume_capacity: 5Gi
+  offsets_topic_replication_factor: 3
+  transaction_state_log:
+    replication_factor: 3
+    min_isr: 2
+  delete_claim: "true"
+  requests:
+    cpu: 300m
+    memory: 500M
+  limits:  
+    cpu: 1
+    memory: 2G
+  readiness_probe:  
+    initial_delay_seconds: 15
+    timeout_seconds: 5
+  liveness_probe:  
+    initial_delay_seconds: 45
+    timeout_seconds: 5
+  bootstrap:  
+    service: "kafka-cluster-kafka-bootstrap.sepsis-demo.svc"
+    port: 9092
+    address: "{{ kafka_bootstrap_service }}:{{ kafka_bootstrap_port }}"
+  connect_image: quay.io/redhat_naps_da/strimzi-debezium-postgresql:1.7.0-1.5.0.Final
+  topics: >
+    [{"name": "kakfa-connect-offsets", "partitions": "25", "replicas": "3", "config": '{"cleanup.policy": "compact"}'},
+     {"name": "kakfa-connect-configs", "partitions": "1", "replicas": "3", "config": '{"cleanup.policy": "compact"}'},
+     {"name": "kakfa-connect-status", "partitions": "5", "replicas": "3", "config": '{"cleanup.policy": "compact"}'}]
+
+topic:
+  operator:
+    requests:
+      cpu: 250m
+      memory: 250M
+    limits:  
+      cpu: 500m
+      memory: 500M
+    readiness_probe:
+      initial_delay_seconds : 10
+      timeout_seconds: 5
+    liveness_probe:  
+      initial_delay_seconds : 15
+      timeout_seconds: 5
+
+user:
+  operator:
+    requests:
+      cpu: 150m
+      memory: 150M
+    limits:  
+      cpu: 500m
+      memory: 250M
+    readiness_probe:
+      initial_delay_seconds: 10
+      timeout_seconds: 5
+    liveness_probe:  
+      initial_delay_seconds: 15 
+      timeout_seconds: 5
+
+entity_operator:
+  tlssidecar:
+    requests: 
+      cpu : 50m
+      memory : 100M
+    limits:  
+      cpu : 50m
+      memory : 100M
+    readiness_probe:
+      initial_delay_seconds: 15
+      timeout_seconds: 5
+    liveness_probe:  
+      initial_delay_seconds: 20
+      timeout_seconds: 5
+
+enable_metrics: true

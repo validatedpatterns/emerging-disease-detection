@@ -1,0 +1,13 @@
+namespace: sepsis-demo
+application_name: sepsisdetection-risk
+service_account: sepsisdetection-risk
+application_properties: application.properties
+application_configmap: sepsisdetection-risk
+application_configmap_key: application.properties
+binary_imagestream_template: binary-imagestream.yml 
+service_image: quay.io/redhat_naps_da/sepsisdetection-risk
+service_image_tag: 0.0.4
+kafka_bootstrap_address: kafka-cluster-kafka-bootstrap.sepsis-demo.svc.cluster.local:9092
+fhir_server_application_name: fhir-server
+configmap:
+   applproperties: properties/application.properties
