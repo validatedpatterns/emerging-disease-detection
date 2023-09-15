@@ -7,9 +7,10 @@ items:
    apiVersion: v1
    metadata:
     name: {{.Values.plsql.psql_app_name}}
+    annotations:
+      argocd.argoproj.io/hook: PreSync
     labels:
       app: {{.Values.plsql.psql_app_name}}
-     
    spec:
     accessModes:
     - ReadWriteOnce
@@ -21,6 +22,8 @@ items:
    apiVersion: v1
    metadata:
       name: {{ .Values.plsql.postgresql_service_account }}
+      annotations:
+        argocd.argoproj.io/hook: PreSync
       labels:
             app: {{.Values.plsql.psql_app_name}}      
 
@@ -28,6 +31,8 @@ items:
    apiVersion: v1
    metadata:
       name: {{ .Values.configmap.postgres_configmap.name  }}
+      annotations:
+        argocd.argoproj.io/hook: PreSync
       labels:
             app: {{.Values.plsql.psql_app_name}}   
    data:
@@ -44,6 +49,8 @@ items:
    apiVersion: v1
    metadata:
       name: {{ .Values.configmap.debezium_configmap.name  }}
+      annotations:
+        argocd.argoproj.io/hook: PreSync
       labels:
             app: {{.Values.plsql.psql_app_name}}
    data:
@@ -56,6 +63,8 @@ items:
    apiVersion: v1
    metadata:
         name: {{.Values.plsql.psql_app_name}}
+        annotations:
+          argocd.argoproj.io/hook: PreSync
         labels:
             app: {{.Values.plsql.psql_app_name}}
    type: Opaque
@@ -70,6 +79,7 @@ items:
       name:  {{.Values.plsql.psql_app_name}}
       annotations:
         template.openshift.io/expose-uri: postgres://{.spec.clusterIP}:{.spec.ports[?(.name=="postgresql")].port}
+        argocd.argoproj.io/sync-wave: "2"
       labels:
         app:  {{.Values.plsql.psql_app_name}}
    spec:

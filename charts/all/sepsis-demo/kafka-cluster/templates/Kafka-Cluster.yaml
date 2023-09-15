@@ -3,6 +3,8 @@ kind: Kafka
 metadata:
   name: {{ .Values.kafka_cluster }}
   namespace: {{ .Values.project_name }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
 spec:
   kafka:
     #version: {{ .Values.kafka.version }}

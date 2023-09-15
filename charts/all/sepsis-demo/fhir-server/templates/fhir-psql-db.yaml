@@ -2,6 +2,8 @@ kind: DeploymentConfig
 apiVersion: apps.openshift.io/v1
 metadata:
   name: {{ .Values.plsql.psql_app_name }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
   labels:
     app: {{ .Values.plsql.psql_app_name }}
     app.kubernetes.io/part-of: datatier

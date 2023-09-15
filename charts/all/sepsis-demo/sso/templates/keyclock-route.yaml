@@ -6,6 +6,7 @@ metadata:
     app: keycloak
   annotations:
     openshift.io/host.generated: 'true'
+    argocd.argoproj.io/sync-wave: "1"
   namespace: {{.Values.namespace}}  
 spec:
   to:

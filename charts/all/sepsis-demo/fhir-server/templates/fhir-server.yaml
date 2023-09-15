@@ -7,6 +7,8 @@ items:
     apiVersion: v1
     metadata:
        name: {{ .Values.fhirserver.applicationname }}
+       annotations:
+            argocd.argoproj.io/hook: PreSync
        labels:
             app: {{.Values.fhirserver.applicationname}}
 
@@ -14,6 +16,8 @@ items:
     apiVersion: rbac.authorization.k8s.io/v1
     metadata:
         name: {{ printf "%s-admin" .Values.fhirserver.applicationname }}
+        annotations:
+            argocd.argoproj.io/hook: PreSync
         labels:
             app: {{.Values.fhirserver.applicationname}}
     roleRef:
@@ -29,6 +33,8 @@ items:
     apiVersion: v1
     metadata:
         name: {{ .Values.fhirserver.configmap.name }}
+        annotations:
+            argocd.argoproj.io/hook: PreSync
         labels:
             app: {{.Values.fhirserver.applicationname}}
     data:
@@ -41,6 +47,8 @@ items:
     apiVersion: image.openshift.io/v1
     metadata:
        name: {{ .Values.fhirserver.applicationname }}
+       annotations:
+            argocd.argoproj.io/hook: PreSync
        labels:
             app: {{.Values.fhirserver.applicationname}}
     spec:
@@ -50,6 +58,8 @@ items:
     apiVersion: v1
     metadata:
        name: {{ .Values.fhirserver.applicationname }}
+       annotations:
+            argocd.argoproj.io/sync-wave: "4"
        labels:
             app: {{.Values.fhirserver.applicationname}}
             expose: "true"
@@ -69,6 +79,8 @@ items:
     apiVersion: apps.openshift.io/v1
     metadata:
        name: {{ .Values.fhirserver.applicationname }}
+       annotations:
+            argocd.argoproj.io/sync-wave: "3"
        labels:
             app: {{.Values.fhirserver.applicationname}}
     spec:
@@ -174,6 +186,8 @@ items:
     apiVersion: route.openshift.io/v1
     metadata:
       name: {{ .Values.fhirserver.applicationname }}
+      annotations:
+            argocd.argoproj.io/sync-wave: "5"
     spec:
       host: {{ .Values.fhirserver.applicationname }}-{{.Values.namespace}}.{{.Values.global.hubClusterDomain}}
       port:

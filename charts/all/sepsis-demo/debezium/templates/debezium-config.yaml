@@ -2,6 +2,8 @@ apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaConnector
 metadata:
   name: {{ .Values.debezium.name }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
   labels:
     strimzi.io/cluster: kafka-connect 
 spec:

@@ -5,6 +5,7 @@ metadata:
   namespace: {{ .Values.project_name }}
   annotations:
     strimzi.io/use-connector-resources: 'true'
+    argocd.argoproj.io/sync-wave: "1"
 spec:
   build:
     output: 

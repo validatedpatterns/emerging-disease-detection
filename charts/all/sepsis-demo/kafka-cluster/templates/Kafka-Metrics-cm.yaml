@@ -5,6 +5,8 @@ metadata:
   namespace: {{ .Values.project_name }}
   labels:
     app: strimzi
+  annotations:
+    argocd.argoproj.io/hook: PreSync  
 data:
   kafka-metrics-config.yml: |
     # See https://github.com/prometheus/jmx_exporter for more info about JMX Prometheus Exporter metrics

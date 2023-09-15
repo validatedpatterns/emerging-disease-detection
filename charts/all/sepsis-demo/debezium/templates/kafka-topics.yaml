@@ -8,6 +8,8 @@ items:
     kind: KafkaTopic
     metadata:
         name: {{ $topics.name }}
+        annotations:
+          argocd.argoproj.io/sync-wave: "1"
         namespace: {{ $.Values.project_name}}
         labels:
             strimzi.io/cluster: {{ $.Values.kafka_cluster }}
