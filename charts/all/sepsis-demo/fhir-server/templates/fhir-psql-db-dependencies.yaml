@@ -8,7 +8,7 @@ items:
    metadata:
     name: {{.Values.plsql.psql_app_name}}
     annotations:
-      argocd.argoproj.io/hook: PreSync
+      argocd.argoproj.io/sync-wave: "1"
     labels:
       app: {{.Values.plsql.psql_app_name}}
    spec:
