@@ -1,4 +1,12 @@
 #Added the cluster Domain for make test to pass
+---
+secretStore:
+  name: vault-backend
+  kind: ClusterSecretStore
+
+sepsisdetectionsecret:
+  key: secret/data/global/sepsis-detection
+
 global:
   hubClusterDomain: hub.example.com
   localClusterDomain: region-one.example.com

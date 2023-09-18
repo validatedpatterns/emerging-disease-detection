@@ -1,6 +1,6 @@
 ---
 global:
-  pattern: multicloud-gitops
+  pattern: emerging-disease-detection
   hubClusterDomain: "AUTO" # this is for test only This value is automatically fetched when Invoking against a cluster
 
   options:
