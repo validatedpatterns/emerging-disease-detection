@@ -1,6 +1,13 @@
 namespace: sepsis-demo
 postgresql_init_configmap: psql-rhpam-init
 
+secretStore:
+  name: vault-backend
+  kind: ClusterSecretStore
+
+rhpamsecret:
+  key: secret/data/global/rhpam
+
 #Added the cluster Domain for make test to pass
 global:
   hubClusterDomain: hub.example.com
