@@ -10,7 +10,7 @@ global:
 rhpam:
   psql_app_name: psql-rhpam
   psql_user_name: rhpam
-  psql_passwd: rhpam
+  psql_passwd: rhpam_pw #See values-secret file
   psql_db_name: rhpam
 
 postgresql:
@@ -47,7 +47,7 @@ application_configmap: sepsisdetection-rhpam
 
 sepsisdetection:
    rhpam_app_name: sepsisdetection-rhpam
-   rhpam_api_passwd: kieserver
+   rhpam_api_passwd: kieserver_pw #See values-secret file
    rhpam_deployment_name: sepsisdetection-kjar
    rhpam_deployment_version: 1.0.0
    rhpam_process_id: sepsisdetection
@@ -59,8 +59,8 @@ kafka_debezium_topic: "fhir.public.hfj_res_ver"
 
 kie_server_repo_path: /deployments/config
 kie_admin_user: admin
-kie_admin_password: user
-kieserver_user_password: kieserver
+kie_admin_password: user_pw
+kieserver_user_password: kieserver_pw #See values-secret file
 kie_deployment_name: "sepsisdetection-kjar"
 kie_deployment_version: "1.0.0"
 kie_process_id: sepsisdetection
@@ -74,7 +74,7 @@ project_name: "user1-sepsisdetection"
 
 # Namespace where SSO will be installed
 namespace_sso: sepsisdetection-sso
-sso_siteadmin_password: r3dh4t1!
+sso_siteadmin_password: r3dh4t1!_pw #See values-secret file
 
 # If set to True, then every user that creates an account in demo will automatically be a "realm-admin"
 sso_url: sso-sepsis-demo
