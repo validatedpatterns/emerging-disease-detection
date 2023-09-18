@@ -4,6 +4,8 @@ items:
 - apiVersion: route.openshift.io/v1
   kind: Route
   metadata:
+    annotations:
+      argocd.argoproj.io/sync-wave: "1"
     labels:
       app: {{ .Values.application_name }}
     name: {{ .Values.application_name }}

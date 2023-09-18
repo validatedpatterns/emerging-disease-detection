@@ -8,12 +8,16 @@ items:
     metadata:
       name: "{{ .Values.postgresql.service_account }}"
       namespace: "{{ .Values.namespace }}"
+      annotations:
+         argocd.argoproj.io/hook: PreSync
 
   - apiVersion: v1
     kind: ConfigMap
     metadata:
       name: "{{ .Values.postgresql_init_configmap }}"
       namespace: "{{ .Values.namespace }}"
+      annotations:
+         argocd.argoproj.io/hook: PreSync
     data:
       create_database.sh: |-
           {{ range .Files.Lines .Values.configmap.postgres_configmap.create_db_file }}
@@ -45,6 +49,8 @@ items:
     metadata:
       name: {{ .Values.rhpam.psql_app_name }}
       namespace: {{ .Values.namespace }}
+      annotations:
+         argocd.argoproj.io/hook: PreSync
     type: Opaque
     data: 
       database-user: {{ .Values.rhpam.psql_user_name  | b64enc}}
@@ -57,6 +63,7 @@ items:
       name: {{ .Values.rhpam.psql_app_name }}
       annotations:
         template.openshift.io/expose-uri: postgres://{.spec.clusterIP}:{.spec.ports[?(.name=="postgresql")].port}
+        argocd.argoproj.io/hook: PreSync
       labels:
         app: {{ .Values.rhpam.psql_app_name }}
     spec:
@@ -77,6 +84,8 @@ items:
     apiVersion: v1
     metadata:
       name: {{ .Values.rhpam.psql_app_name }}
+      annotations:
+         argocd.argoproj.io/hook: PreSync
       labels:
         app: {{ .Values.rhpam.psql_app_name }}
     spec:
@@ -91,6 +100,8 @@ items:
     apiVersion: apps.openshift.io/v1
     metadata:
       name: {{ .Values.rhpam.psql_app_name }}
+      annotations:
+        argocd.argoproj.io/sync-wave: "1"
       labels:
         app: {{ .Values.rhpam.psql_app_name }}
         app.kubernetes.io/part-of: datatier

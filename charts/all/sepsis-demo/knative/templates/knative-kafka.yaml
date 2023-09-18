@@ -5,6 +5,8 @@ kind: KnativeKafka
 metadata:
   name: {{ .Values.knative.kafka.name }}
   namespace: knative-eventing
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
 spec:
   channel:
     bootstrapServers: kafka-cluster-kafka-bootstrap.{{ .Values.project_name }}:9092

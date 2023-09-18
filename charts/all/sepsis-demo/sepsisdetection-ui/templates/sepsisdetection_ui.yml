@@ -7,6 +7,8 @@ items:
     labels:
       app: {{ .Values.application_name }}
     name: {{ .Values.application_name }}
+    annotations:
+       argocd.argoproj.io/sync-wave: "3"
   spec:
     port:
       targetPort: http
@@ -20,6 +22,8 @@ items:
   kind: Service
   metadata:
     name: {{ .Values.application_name }}
+    annotations:
+       argocd.argoproj.io/sync-wave: "2"
     labels:
       expose: "true"
       app: {{ .Values.application_name }}
@@ -40,6 +44,8 @@ items:
     labels:
       app: {{ .Values.application_name }}
     name: {{ .Values.application_name }}
+    annotations:
+       argocd.argoproj.io/sync-wave: "1"
   spec:
     replicas: 1
     selector:

@@ -4,6 +4,8 @@ apiVersion: image.openshift.io/v1
 kind: ImageStream
 metadata:
   name: {{ .Values.application_name }}
+  annotations:
+    argocd.argoproj.io/hook: PreSync 
   labels:
     app: {{ .Values.application_name }}
 spec:

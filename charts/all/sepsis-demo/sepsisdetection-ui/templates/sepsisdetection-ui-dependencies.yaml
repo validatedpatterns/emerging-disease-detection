@@ -8,11 +8,15 @@ items:
       metadata:
         name: "{{ .Values.application_name }}"
         namespace: "{{ .Values.namespace }}"
+        annotations:
+           argocd.argoproj.io/hook: PreSync
 
     - apiVersion: v1
       kind: ConfigMap
       metadata:
         name: "{{ .Values.application_name }}"
+        annotations:
+           argocd.argoproj.io/hook: PreSync
       data:
         env.js: |-
             {{ range $lines := .Files.Lines .Values.configmap.envjs }}
@@ -25,6 +29,8 @@ items:
       kind: ImageStream
       metadata:
           name: {{ .Values.application_name }}
+          annotations:
+             argocd.argoproj.io/hook: PreSync
           labels:
              app: {{ .Values.application_name }}
       spec:

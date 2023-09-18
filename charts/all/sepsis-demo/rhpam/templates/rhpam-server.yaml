@@ -7,13 +7,17 @@ items:
     kind: ServiceAccount
     metadata:
         name: "{{ .Values.service_account }}"
-        namespace: "{{ .Values.namespace }}" 
+        namespace: "{{ .Values.namespace }}"
+        annotations:
+           argocd.argoproj.io/hook: PreSync
 
   - apiVersion: rbac.authorization.k8s.io/v1
     kind: RoleBinding
     metadata:
         name: "{{ .Values.service_account }}-admin"
         namespace: "{{ .Values.namespace }}"
+        annotations:
+            argocd.argoproj.io/hook: PreSync
     roleRef:
         apiGroup: rbac.authorization.k8s.io
         kind: ClusterRole
@@ -28,6 +32,8 @@ items:
     kind: ConfigMap
     metadata:
         name: "{{ .Values.application_configmap }}"
+        annotations:
+          argocd.argoproj.io/hook: PreSync
     data:
         application.properties: |-
           {{ range $lines := .Files.Lines .Values.configmap.application_configmap.application }}
@@ -50,6 +56,8 @@ items:
     kind: ImageStream
     metadata:
         name: {{ .Values.application_name }}
+        annotations:
+           argocd.argoproj.io/hook: PreSync
         labels:
             app: {{ .Values.application_name }}
     spec:
