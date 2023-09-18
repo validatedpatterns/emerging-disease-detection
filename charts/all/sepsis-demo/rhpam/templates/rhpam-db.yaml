@@ -85,7 +85,7 @@ items:
     metadata:
       name: {{ .Values.rhpam.psql_app_name }}
       annotations:
-         argocd.argoproj.io/hook: PreSync
+         argocd.argoproj.io/sync-wave: "1"
       labels:
         app: {{ .Values.rhpam.psql_app_name }}
     spec:
