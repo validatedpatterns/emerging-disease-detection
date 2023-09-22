@@ -7,7 +7,7 @@
   window._env.SSO_CLIENT = "{{ .Values.sso_clientId }}";
   window._env.KIE_SERVER_URL = "https://{{ .Values.sepsisdetection_rhpam_app_name }}-{{ .Values.project_name }}.{{ .Values.global.hubClusterDomain }}";
   window._env.KIE_SERVER_USERID = "kieserver";
-  window._env.KIE_SERVER_PASSWORD = "RHPAM_API_PASSWD";
+  window._env.KIE_SERVER_PASSWORD = ${RHPAM_API_PASSWD};
   window._env.DM_CONTAINER_ALIAS = "";
   window._env.PAM_CONTAINER_ALIAS = "{{ .Values.sepsisdetection_rhpam_deployment_name }}-{{ .Values.sepsisdetection_rhpam_deployment_version }}";
   window._env.PROCESS_ID = "{{ .Values.sepsisdetection_rhpam_process_id }}";
