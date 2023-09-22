@@ -4,6 +4,8 @@ clusterGroup:
 
   namespaces:
     - vault
+    - golang-external-secrets
+    - external-secrets
     - sepsis-demo
     - openshift-serverless
 
@@ -26,6 +28,12 @@ clusterGroup:
 
   applications:
 
+    secrets-operator:
+      name: golang-external-secrets
+      namespace: golang-external-secrets
+      project: hub
+      path: common/golang-external-secrets
+      
     vault:
       name: vault
       namespace: vault
