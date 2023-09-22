@@ -4,7 +4,7 @@ secretStore:
   kind: ClusterSecretStore
 
 rhpamsecret:
-  key: secret/data/global/rhpam
+  key: secret/data/global/sepsis-demo/rhpam_api_passwd
 
 global:
   hubClusterDomain: hub.example.com
