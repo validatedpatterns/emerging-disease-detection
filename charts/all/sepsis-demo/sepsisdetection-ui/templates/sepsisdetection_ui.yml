@@ -75,6 +75,8 @@ items:
             - name: env
               mountPath: /tmp/env.js
               subPath: env.js  
+            - name: config-emptydir
+              mountPath: /opt/app-root/src/assets/js/env.js  
         containers:
           - image: {{ .Values.image_name }}:{{ .Values.image_tag }}
             name: {{ .Values.application_name }}
@@ -109,7 +111,7 @@ items:
                 memory: "1Gi"
                 cpu: "500m"
             volumeMounts:
-            - name: env
+            - name: config-emptydir
               mountPath: /opt/app-root/src/assets/js/env.js
               subPath: env.js
         dnsPolicy: ClusterFirst
@@ -123,6 +125,8 @@ items:
         - configMap:
             name: {{ .Values.application_name }}
           name: env
+        - emptyDir: {}
+          name: config-emptydir  
     triggers:
       - type: ConfigChange
       - imageChangeParams:
