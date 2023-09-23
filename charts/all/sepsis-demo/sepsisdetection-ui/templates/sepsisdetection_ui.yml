@@ -69,6 +69,7 @@ items:
       spec:
         containers:
           - image: {{ .Values.image_name }}:{{ .Values.image_tag }}
+            command: ["sh","-c", "envsubst < /opt/app-root/src/assets/js/env.js > /opt/app-root/src/assets/js/env.js"]
             name: {{ .Values.application_name }}
             env:
               - name: RHPAM_API_PASSWD
