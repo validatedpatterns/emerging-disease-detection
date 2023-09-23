@@ -69,7 +69,7 @@ items:
       spec:
         initContainers:
           - name: setup-env-js
-            image: registry.redhat.io/rhel7/rhel-tools:7.9-66
+            image: bhgedigital/envsubst
             command: ["sh","-c", "envsubst < /tmp/configmap-dir/env.js > /opt/app-root/src/assets/js/env.js"]
             volumeMounts:
             - name: env
