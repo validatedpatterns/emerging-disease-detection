@@ -71,6 +71,12 @@ items:
           - name: setup-env-js
             image: bhgedigital/envsubst
             command: ["sh","-c", "envsubst < /tmp/configmap-dir/env.js > /opt/app-root/src/assets/js/env.js"]
+            env:
+              - name: RHPAM_API_PASSWD
+                valueFrom:
+                  secretKeyRef:
+                    key: rhpam_api_passwd
+                    name: sepsisdetection-rhpam
             volumeMounts:
             - name: env
               mountPath: /tmp/configmap-dir/env.js
