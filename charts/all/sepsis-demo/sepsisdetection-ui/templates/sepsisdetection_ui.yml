@@ -73,7 +73,7 @@ items:
             command: ["sh","-c", "envsubst < /tmp/configmap-dir/env.js > /opt/app-root/src/assets/js/env.js"]
             volumeMounts:
             - name: env
-              mountPath: /tmp/configmap-dir
+              mountPath: /tmp/configmap-dir/env.js
               subPath: env.js  
             - name: config-emptydir
               mountPath: /opt/app-root/src/assets/js 
