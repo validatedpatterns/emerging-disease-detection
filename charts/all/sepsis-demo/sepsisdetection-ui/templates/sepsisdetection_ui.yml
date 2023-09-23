@@ -105,6 +105,7 @@ items:
             - name: env
               mountPath: /opt/app-root/src/assets/js/env.js
               subPath: env.js
+              readonly: false
         dnsPolicy: ClusterFirst
         restartPolicy: Always
         schedulerName: default-scheduler
