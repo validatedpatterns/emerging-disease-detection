@@ -70,13 +70,13 @@ items:
         initContainers:
           - name: setup-env-js
             image: busybox:latest
-            command: ["sh","-c", "envsubst < /tmp/env.js > /opt/app-root/src/assets/js/env.js"]
+            command: ["sh","-c", "envsubst < /tmp/configmap-dir/env.js > /opt/app-root/src/assets/js/env.js"]
             volumeMounts:
             - name: env
-              mountPath: /tmp/env.js
+              mountPath: /tmp/configmap-dir
               subPath: env.js  
             - name: config-emptydir
-              mountPath: /opt/app-root/src/assets/js/env.js  
+              mountPath: /opt/app-root/src/assets/js 
         containers:
           - image: {{ .Values.image_name }}:{{ .Values.image_tag }}
             name: {{ .Values.application_name }}
