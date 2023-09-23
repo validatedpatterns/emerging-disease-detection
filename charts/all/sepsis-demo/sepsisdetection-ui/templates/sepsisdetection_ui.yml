@@ -86,12 +86,6 @@ items:
         containers:
           - image: {{ .Values.image_name }}:{{ .Values.image_tag }}
             name: {{ .Values.application_name }}
-            env:
-              - name: RHPAM_API_PASSWD
-                valueFrom:
-                  secretKeyRef:
-                    key: rhpam_api_passwd
-                    name: sepsisdetection-rhpam
             ports:
             - containerPort: 7080
             livenessProbe:
