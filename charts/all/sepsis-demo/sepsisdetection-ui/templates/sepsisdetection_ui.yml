@@ -69,7 +69,7 @@ items:
       spec:
         initContainers:
           - name: setup-env-js
-            image: bhgedigital/envsubst
+            image: quay.io/redhat_naps_da/ubi-8-env-tools
             command: ["sh","-c", "envsubst < /tmp/configmap-dir/env.js > /opt/app-root/src/assets/js/env.js"]
             env:
               - name: RHPAM_API_PASSWD
