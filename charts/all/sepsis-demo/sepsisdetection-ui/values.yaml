@@ -3,8 +3,12 @@ secretStore:
   name: vault-backend
   kind: ClusterSecretStore
 
+
 rhpamsecret:
   key: secret/data/global/sepsis-demo
+
+
+
 global:
   hubClusterDomain: hub.example.com
   localClusterDomain: region-one.example.com

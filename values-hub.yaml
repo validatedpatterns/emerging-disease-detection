@@ -3,6 +3,7 @@ clusterGroup:
   isHubCluster: true
 
   namespaces:
+
     - vault
     - golang-external-secrets
     - external-secrets
@@ -165,6 +166,11 @@ clusterGroup:
         jqPathExpressions:
         - '.spec.template.spec.containers[].image'
 
+    secrets-operator:
+      name: golang-external-secrets
+      namespace: golang-external-secrets
+      project: hub
+      path: common/golang-external-secrets
 
   imperative:
     # NOTE: We *must* use lists and not hashes. As hashes lose ordering once parsed by helm
