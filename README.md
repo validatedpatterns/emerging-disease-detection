@@ -7,7 +7,7 @@
 ## Start Here
 
 If you've followed a link to this repository, but are not really sure what it contains
-or how to use it, head over to [Emerging Disease Detection](http://validatedpatters.io/emerging-disease-detection/)
+or how to use it, head over to [Emerging Disease Detection](http://validatedpatterns.io/emerging-disease-detection/)
 for additional context and installation instructions
 
 ## Background
