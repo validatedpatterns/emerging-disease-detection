@@ -176,7 +176,7 @@ clusterGroup:
     jobs:
     - name: sso-realm
       # ansible playbook to be run
-      playbook: common/ansible/playbooks/sso-realm/sso-realm.yaml
+      playbook: ansible/sso-realm/sso-realm.yaml
       # per playbook timeout in seconds
       timeout: 234
       # verbosity: "-v"
