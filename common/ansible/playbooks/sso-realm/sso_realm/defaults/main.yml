@@ -1,9 +1,0 @@
----
-
-sso_admin_credentials_secret: credential-rhsso
-
-sso_config_configmap: sso-config
-
-smtp_host:
-smtp_passwd:
-smtp_userid:

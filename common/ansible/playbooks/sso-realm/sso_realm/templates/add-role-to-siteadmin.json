@@ -1,6 +1,0 @@
-[
-    {
-        "id": "{{ siteadmin_role_id }}",
-        "name": "siteadmin"
-    }
-]
