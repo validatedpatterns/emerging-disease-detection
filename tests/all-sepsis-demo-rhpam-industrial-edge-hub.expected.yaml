@@ -1,4 +1,23 @@
 ---
+# Source: rhpam/templates/rhpam-external-secret.yaml
+apiVersion: "external-secrets.io/v1beta1"
+kind: ExternalSecret
+metadata:
+  name: sepsisdetection-rhpam
+  namespace: sepsis-demo
+spec:
+  refreshInterval: 15s
+  secretStoreRef:
+    name: vault-backend
+    kind: ClusterSecretStore
+  target:
+    name: sepsisdetection-rhpam
+    template:
+      type: Opaque
+  dataFrom:
+  - extract:
+      key: secret/data/global/rhpam
+---
 # Source: rhpam/templates/rhpam-db.yaml
 kind: List
 apiVersion: v1
@@ -51,8 +70,6 @@ items:
               psql -h $POSTGRESQL_SERVICE -d $POSTGRESQL_DATABASE -U $POSTGRESQL_USER -w < ${SCRIPT_DIR}/quartz_tables_postgres.sql
           
               psql -h $POSTGRESQL_SERVICE -d $POSTGRESQL_DATABASE -U $POSTGRESQL_USER -w < ${SCRIPT_DIR}/postgresql-jbpm-lo-trigger-clob.sql
-          
-              
           
       postgresql-jbpm-lo-trigger-clob.sql: |-
           
@@ -1548,8 +1565,6 @@ items:
           
               alter table task_comment add constraint FKm2mwc1ukcpdsiqwgkoroy6ise foreign key (TaskData_Comments_Id) references Task;
           
-              
-          
       quartz_tables_postgres.sql: |-
           
               -- Thanks to Patrick Lightbody for submitting this...
@@ -1902,8 +1917,6 @@ items:
           
               commit;
           
-              
-          
       task_assigning_tables_postgresql.sql: |-
           
                   create table PlanningTask (
@@ -1969,7 +1982,7 @@ items:
     type: Opaque
     data: 
       database-user: cmhwYW0=
-      database-password: cmhwYW0=
+      database-password: cmhwYW1fcHc=
       database-name: cmhwYW0=
   
   - kind: Service
@@ -2206,7 +2219,7 @@ items:
                 command:
                 - "/bin/bash"
                 - "-c"
-                - "curl --fail --silent -u 'admin:user' http://localhost:8080/rest/server/healthcheck"
+                - "curl --fail --silent -u 'admin:user_pw' http://localhost:8080/rest/server/healthcheck"
               initialDelaySeconds: 30
               periodSeconds: 60
               timeoutSeconds: 3
@@ -2217,7 +2230,7 @@ items:
                 command:
                 - "/bin/bash"
                 - "-c"
-                - "curl --fail --silent -u 'admin:user' http://localhost:8080/rest/server/healthcheck"
+                - "curl --fail --silent -u 'admin:user_pw' http://localhost:8080/rest/server/healthcheck"
               initialDelaySeconds: 30
               periodSeconds: 60
               timeoutSeconds: 3
@@ -2301,12 +2314,12 @@ items:
         application.properties: |-
                 spring.datasource.url=jdbc:postgresql://psql-rhpam:5432/rhpam
                 spring.datasource.username=rhpam
-                spring.datasource.password=rhpam
+                spring.datasource.password=rhpam_pw
                 
                 jbpm.quartz.configuration=file:./config/jbpm-quartz.properties
                 quartz.clustered=false
                 quartz.datasource.username=rhpam
-                quartz.datasource.password=rhpam
+                quartz.datasource.password=rhpam_pw
                 quartz.datasource.url=jdbc:postgresql://psql-rhpam:5432/rhpam
                 quartz.datasource.dbcp2.maxTotal=20
                 
@@ -2364,8 +2377,8 @@ items:
                 
                 
                 #######     security     ##########
-                basic.auth.rhpam.admin.passwd=user
-                basic.auth.rhpam.kieserver.passwd=kieserver
+                basic.auth.rhpam.admin.passwd=user_pw
+                basic.auth.rhpam.kieserver.passwd=kieserver_pw
                 
                 # https://www.keycloak.org/docs/latest/securing_apps/#_java_adapter_config
                 keycloak.auth-server-url=https://sso-sepsis-demo.apps.hub.example.com/auth
@@ -2395,7 +2408,6 @@ items:
                 outgoing.destination.generateRiskAssessmentCommand=risk-assessment-command
                 
                 ########################################
-                
           
         jbpm-quartz.properties: |-
           #============================================================================ 
@@ -2435,7 +2447,6 @@ items:
           org.quartz.dataSource.xaDataSource.dataSourceName = quartzDataSource 
           org.quartz.dataSource.nonXaDataSource.connectionProvider.class = org.jbpm.springboot.quartz.SpringConnectionProvider 
           org.quartz.dataSource.nonXaDataSource.dataSourceName = quartzNotManagedDataSource 
-           
           
         logback-spring.xml: |-
           <?xml version="1.0" encoding="UTF-8"?> 
@@ -2451,7 +2462,6 @@ items:
           <appender-ref ref="stdout"/> 
           </root> 
           </configuration> 
-           
           
         sepsisdetection-rhpam.xml: |-
           <kie-server-state> 
@@ -2495,7 +2505,6 @@ items:
           </container> 
           </containers> 
           </kie-server-state> 
-           
           
   - apiVersion: image.openshift.io/v1
     kind: ImageStream

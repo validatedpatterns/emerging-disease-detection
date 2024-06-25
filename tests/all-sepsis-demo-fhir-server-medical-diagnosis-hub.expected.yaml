@@ -210,8 +210,6 @@ items:
         
             
         
-            
-        
       wait_for_postgresql.sh: |-   
         
             #!/bin/sh
@@ -263,8 +261,6 @@ items:
             max_wal_senders = 1             
           
             max_replication_slots = 1
-          
-            
           
 
  - kind: Secret
@@ -477,7 +473,6 @@ items:
         #  protocol: 'http' 
         #  schema_management_strategy: CREATE 
         #  username: SomeUsername 
-         
         
 
   - kind: ImageStream

@@ -1,6 +1,6 @@
 ---
 # Source: knative/templates/knative-eventing.yaml
-apiVersion: operator.knative.dev/v1alpha1
+apiVersion: operator.knative.dev/v1beta1
 kind: KnativeEventing
 metadata:
     name: knative-eventing
@@ -22,7 +22,7 @@ spec:
     enabled: true
 ---
 # Source: knative/templates/knative-serving.yaml
-apiVersion: operator.knative.dev/v1alpha1
+apiVersion: operator.knative.dev/v1beta1
 kind: KnativeServing
 metadata:
     name: knative-serving

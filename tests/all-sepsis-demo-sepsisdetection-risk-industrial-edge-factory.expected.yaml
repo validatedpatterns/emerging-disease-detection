@@ -48,7 +48,6 @@ items:
                   # URL to FHIR Server
                   com.redhat.naps.rest.FhirServerClient/mp-rest/url=http://fhir-server:8080
                   ##################################
-                  
             
 
     - apiVersion: image.openshift.io/v1

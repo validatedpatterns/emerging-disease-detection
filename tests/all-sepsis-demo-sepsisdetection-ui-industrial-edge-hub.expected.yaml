@@ -1,4 +1,23 @@
 ---
+# Source: sepsisdetection-ui/templates/sepsisdetection-ui-external-secret.yaml
+apiVersion: "external-secrets.io/v1beta1"
+kind: ExternalSecret
+metadata:
+  name: sepsis-detection-ui
+  namespace: sepsis-demo
+spec:
+  refreshInterval: 15s
+  secretStoreRef:
+    name: vault-backend
+    kind: ClusterSecretStore
+  target:
+    name: sepsis-detection-ui
+    template:
+      type: Opaque
+  dataFrom:
+  - extract:
+      key: secret/data/global/sepsis-detection
+---
 # Source: sepsisdetection-ui/templates/sepsisdetection-ui-dependencies.yaml
 kind: List
 apiVersion: v1
@@ -38,7 +57,6 @@ items:
                   window._env.PATIENT_VIEWER_URL = "https://demo.healthflow.io/profile/5e3ad7fe-24fa-4dc2-8be5-25554a8efb2c";
                   window._env.IS_OPENSHIFT = "true";
                   })(this);
-                  
             
 
 
