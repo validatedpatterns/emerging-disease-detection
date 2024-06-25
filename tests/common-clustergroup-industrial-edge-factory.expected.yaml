@@ -1,5 +1,5 @@
 ---
-# Source: pattern-clustergroup/templates/core/namespaces.yaml
+# Source: clustergroup/templates/core/namespaces.yaml
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -8,7 +8,7 @@ metadata:
   name: manuela-stormshift-line-dashboard
 spec:
 ---
-# Source: pattern-clustergroup/templates/core/namespaces.yaml
+# Source: clustergroup/templates/core/namespaces.yaml
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -17,7 +17,7 @@ metadata:
   name: manuela-stormshift-machine-sensor
 spec:
 ---
-# Source: pattern-clustergroup/templates/core/namespaces.yaml
+# Source: clustergroup/templates/core/namespaces.yaml
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -26,7 +26,7 @@ metadata:
   name: manuela-stormshift-messaging
 spec:
 ---
-# Source: pattern-clustergroup/templates/core/namespaces.yaml
+# Source: clustergroup/templates/core/namespaces.yaml
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -35,7 +35,7 @@ metadata:
   name: manuela-factory-ml-workspace
 spec:
 ---
-# Source: pattern-clustergroup/templates/imperative/namespace.yaml
+# Source: clustergroup/templates/imperative/namespace.yaml
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -44,7 +44,7 @@ metadata:
     argocd.argoproj.io/managed-by: mypattern-factory
   name: imperative
 ---
-# Source: pattern-clustergroup/templates/plumbing/gitops-namespace.yaml
+# Source: clustergroup/templates/plumbing/gitops-namespace.yaml
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -57,14 +57,21 @@ metadata:
   name: mypattern-factory
 spec: {}
 ---
-# Source: pattern-clustergroup/templates/imperative/serviceaccount.yaml
+# Source: clustergroup/templates/imperative/serviceaccount.yaml
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: imperative-sa
   namespace: imperative
 ---
-# Source: pattern-clustergroup/templates/imperative/configmap.yaml
+# Source: clustergroup/templates/imperative/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: imperative-admin-sa
+  namespace: imperative
+---
+# Source: clustergroup/templates/imperative/configmap.yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -83,12 +90,73 @@ data:
         namespace: manuela-factory-ml-workspace
         path: charts/datacenter/opendatahub
         project: factory
+      argoCD:
+        configManagementPlugins:
+        - image: quay.io/hybridcloudpatterns/utility-container:latest
+          name: helm-with-kustomize
+          pluginArgs:
+          - --loglevel=debug
+          pluginConfig: |
+            apiVersion: argoproj.io/v1alpha1
+            kind: ConfigManagementPlugin
+            metadata:
+              name: helm-with-kustomize
+            spec:
+              preserveFileMode: true
+              init:
+                command: ["/bin/sh", "-c"]
+                args: ["helm dependency build"]
+              generate:
+                command: ["/bin/bash", "-c"]
+                args: ["helm template . --name-template ${ARGOCD_APP_NAME:0:52}
+                  -f $(git rev-parse --show-toplevel)/values-global.yaml
+                  -f $(git rev-parse --show-toplevel)/values-factory.yaml
+                  --set global.repoURL=$ARGOCD_APP_SOURCE_REPO_URL
+                  --set global.targetRevision=$ARGOCD_APP_SOURCE_TARGET_REVISION
+                  --set global.namespace=$ARGOCD_APP_NAMESPACE
+                  --set global.pattern=mypattern
+                  --set global.clusterDomain=region.example.com
+                  --set global.hubClusterDomain=apps.hub.example.com
+                  --set global.localClusterDomain=apps.region.example.com
+                  --set clusterGroup.name=factory
+                  --post-renderer ./kustomize"]
+        initContainers: []
+        resourceExclusions: |
+          - apiGroups:
+            - tekton.dev
+            kinds:
+            - TaskRun
+            - PipelineRun
+        resourceHealthChecks:
+        - check: |
+            hs = {}
+            if obj.status ~= nil then
+              if obj.status.phase ~= nil then
+                if obj.status.phase == "Pending" then
+                  hs.status = "Healthy"
+                  hs.message = obj.status.phase
+                  return hs
+                elseif obj.status.phase == "Bound" then
+                  hs.status = "Healthy"
+                  hs.message = obj.status.phase
+                  return hs
+                end
+              end
+            end
+            hs.status = "Progressing"
+            hs.message = "Waiting for PVC"
+            return hs
+          kind: PersistentVolumeClaim
+        resourceTrackingMethod: label
       imperative:
         activeDeadlineSeconds: 3600
+        adminClusterRoleName: imperative-admin-cluster-role
+        adminServiceAccountCreate: true
+        adminServiceAccountName: imperative-admin-sa
         clusterRoleName: imperative-cluster-role
         clusterRoleYaml: ""
         cronJobName: imperative-cronjob
-        image: registry.redhat.io/ansible-automation-platform-23/ee-supported-rhel8:latest
+        image: registry.redhat.io/ansible-automation-platform-24/ee-supported-rhel9:latest
         imagePullPolicy: Always
         insecureUnsealVaultInsideClusterSchedule: '*/5 * * * *'
         jobName: imperative-job
@@ -115,6 +183,7 @@ data:
       - manuela-factory-ml-workspace
       projects:
       - factory
+      sharedValueFiles: []
       subscriptions:
       - channel: stable
         name: opendatahub-operator
@@ -136,15 +205,21 @@ data:
     enabled: all
     global:
       clusterDomain: region.example.com
+      clusterPlatform: aws
+      clusterVersion: "4.12"
+      extraValueFiles: []
       hubClusterDomain: apps.hub.example.com
       localClusterDomain: apps.region.example.com
       namespace: pattern-namespace
       options:
+        applicationRetryLimit: 20
         installPlanApproval: Automatic
         syncPolicy: Automatic
         useCSV: false
       pattern: mypattern
       repoURL: https://github.com/pattern-clone/mypattern
+      secretStore:
+        backend: vault
       targetRevision: main
     main:
       clusterGroupName: hub
@@ -155,7 +230,58 @@ data:
       kind: ClusterSecretStore
       name: vault-backend
 ---
-# Source: pattern-clustergroup/templates/imperative/clusterrole.yaml
+# Source: clustergroup/templates/imperative/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: trusted-ca-bundle
+  namespace: imperative
+  annotations:
+  labels:
+    config.openshift.io/inject-trusted-cabundle: 'true'
+---
+# Source: clustergroup/templates/plumbing/argocd-cmp-plugin-cms.yaml
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: "argocd-cmp-helm-with-kustomize"
+  namespace: mypattern-factory
+data:
+  "plugin.yaml": | 
+    apiVersion: argoproj.io/v1alpha1
+    kind: ConfigManagementPlugin
+    metadata:
+      name: helm-with-kustomize
+    spec:
+      preserveFileMode: true
+      init:
+        command: ["/bin/sh", "-c"]
+        args: ["helm dependency build"]
+      generate:
+        command: ["/bin/bash", "-c"]
+        args: ["helm template . --name-template ${ARGOCD_APP_NAME:0:52}
+          -f $(git rev-parse --show-toplevel)/values-global.yaml
+          -f $(git rev-parse --show-toplevel)/values-factory.yaml
+          --set global.repoURL=$ARGOCD_APP_SOURCE_REPO_URL
+          --set global.targetRevision=$ARGOCD_APP_SOURCE_TARGET_REVISION
+          --set global.namespace=$ARGOCD_APP_NAMESPACE
+          --set global.pattern=mypattern
+          --set global.clusterDomain=region.example.com
+          --set global.hubClusterDomain=apps.hub.example.com
+          --set global.localClusterDomain=apps.region.example.com
+          --set clusterGroup.name=factory
+          --post-renderer ./kustomize"]
+---
+# Source: clustergroup/templates/plumbing/trusted-bundle-ca-configmap.yaml
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: trusted-ca-bundle
+  namespace: mypattern-factory
+  labels:
+    config.openshift.io/inject-trusted-cabundle: 'true'
+---
+# Source: clustergroup/templates/imperative/clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -170,11 +296,24 @@ rules:
     - list
     - watch
 ---
-# Source: pattern-clustergroup/templates/imperative/rbac.yaml
+# Source: clustergroup/templates/imperative/clusterrole.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: imperative-admin-cluster-role
+rules:
+  - apiGroups:
+    - '*'
+    resources:
+    - '*'
+    verbs:
+    - '*'
+---
+# Source: clustergroup/templates/imperative/rbac.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: imperative-cluster-admin-rolebinding
+  name: imperative-cluster-rolebinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -184,12 +323,30 @@ subjects:
     name: imperative-sa
     namespace: imperative
 ---
-# Source: pattern-clustergroup/templates/plumbing/argocd-super-role.yaml
+# Source: clustergroup/templates/imperative/rbac.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: imperative-admin-clusterrolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: imperative-admin-cluster-role
+subjects:
+  - kind: ServiceAccount
+    name: imperative-admin-sa
+    namespace: imperative
+---
+# Source: clustergroup/templates/plumbing/argocd-super-role.yaml
 # WARNING: ONLY USE THIS FOR MANAGING CLUSTERS NOT FOR REGULAR USERS
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: openshift-gitops-cluster-admin-rolebinding
+  # We need to have this before anything else or the sync might get stuck forever
+  # due to permission issues
+  annotations:
+    argocd.argoproj.io/sync-wave: "-100"
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -203,12 +360,16 @@ subjects:
     name: openshift-gitops-argocd-server
     namespace: openshift-gitops
 ---
-# Source: pattern-clustergroup/templates/plumbing/argocd-super-role.yaml
+# Source: clustergroup/templates/plumbing/argocd-super-role.yaml
 # WARNING: ONLY USE THIS FOR MANAGING CLUSTERS NOT FOR REGULAR USERS
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: mypattern-factory-cluster-admin-rolebinding
+  # We need to have this before anything else or the sync might get stuck forever
+  # due to permission issues
+  annotations:
+    argocd.argoproj.io/sync-wave: "-100"
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -228,7 +389,7 @@ subjects:
     name: factory-gitops-argocd-dex-server
     namespace: mypattern-factory
 ---
-# Source: pattern-clustergroup/templates/imperative/role.yaml
+# Source: clustergroup/templates/imperative/role.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -242,11 +403,11 @@ rules:
     verbs:
     - '*'
 ---
-# Source: pattern-clustergroup/templates/imperative/rbac.yaml
+# Source: clustergroup/templates/imperative/rbac.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: imperative-admin-rolebinding
+  name: imperative-rolebinding
   namespace: imperative
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -257,7 +418,7 @@ subjects:
     name: imperative-sa
     namespace: imperative
 ---
-# Source: pattern-clustergroup/templates/imperative/job.yaml
+# Source: clustergroup/templates/imperative/job.yaml
 apiVersion: batch/v1
 kind: CronJob
 metadata:
@@ -278,8 +439,8 @@ spec:
           initContainers:
             # git init happens in /git/repo so that we can set the folder to 0770 permissions
             # reason for that is ansible refuses to create temporary folders in there            
-            - name: git-init
-              image: registry.redhat.io/ansible-automation-platform-23/ee-supported-rhel8:latest
+            - name: fetch-ca
+              image: registry.redhat.io/ansible-automation-platform-24/ee-supported-rhel9:latest
               imagePullPolicy: Always
               env:
                 - name: HOME
@@ -287,12 +448,61 @@ spec:
               command:
               - 'sh'
               - '-c'
-              - "mkdir /git/{repo,home};git clone --single-branch --branch main --depth 1 -- https://github.com/pattern-clone/mypattern /git/repo;chmod 0770 /git/{repo,home}"
+              - >-
+                cat /var/run/kube-root-ca/ca.crt /var/run/trusted-ca/ca-bundle.crt /var/run/trusted-hub/hub-kube-root-ca.crt > /tmp/ca-bundles/ca-bundle.crt || true;
+                ls -l /tmp/ca-bundles/
+              volumeMounts:
+              - mountPath: /var/run/kube-root-ca
+                name: kube-root-ca
+              - mountPath: /var/run/trusted-ca
+                name: trusted-ca-bundle
+              - mountPath: /var/run/trusted-hub
+                name: trusted-hub-bundle
+              - mountPath: /tmp/ca-bundles
+                name: ca-bundles            
+            - name: git-init
+              image: registry.redhat.io/ansible-automation-platform-24/ee-supported-rhel9:latest
+              imagePullPolicy: Always
+              env:
+                - name: HOME
+                  value: /git/home
               volumeMounts:
               - name: git
                 mountPath: "/git"
+              - name: ca-bundles
+                mountPath: /etc/pki/tls/certs
+              command:
+              - 'sh'
+              - '-c'
+              - >-
+                if ! oc get secrets -n openshift-gitops vp-private-repo-credentials &> /dev/null; then
+                  URL="https://github.com/pattern-clone/mypattern";
+                else
+                  if ! oc get secrets -n openshift-gitops vp-private-repo-credentials -o go-template='{{index .data.sshPrivateKey | base64decode}}' &>/dev/null; then
+                    U="$(oc get secret -n openshift-gitops vp-private-repo-credentials -o go-template='{{index .data.username | base64decode }}')";
+                    P="$(oc get secret -n openshift-gitops vp-private-repo-credentials -o go-template='{{index .data.password | base64decode }}')";
+                    URL=$(echo https://github.com/pattern-clone/mypattern | sed -E "s/(https?:\/\/)/\1${U}:${P}@/");
+                  else
+                    S="$(oc get secret -n openshift-gitops vp-private-repo-credentials -o go-template='{{index .data.sshPrivateKey | base64decode }}')";
+                    mkdir -p --mode 0700 "${HOME}/.ssh";
+                    echo "${S}" > "${HOME}/.ssh/id_rsa";
+                    chmod 0600 "${HOME}/.ssh/id_rsa";
+                    URL=$(echo https://github.com/pattern-clone/mypattern | sed -E "s/(https?:\/\/)/\1git@/");
+                    git config --global core.sshCommand "ssh -i "${HOME}/.ssh/id_rsa" -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no";
+                  fi;
+                fi;
+                OUT="$(oc get proxy.config.openshift.io/cluster -o jsonpath='{.spec.httpProxy}' 2>/dev/null)";
+                if [ -n "${OUT}" ]; then export HTTP_PROXY="${OUT}"; fi;
+                OUT="$(oc get proxy.config.openshift.io/cluster -o jsonpath='{.spec.httpsProxy}' 2>/dev/null)";
+                if [ -n "${OUT}" ]; then export HTTPS_PROXY="${OUT}"; fi;
+                OUT="$(oc get proxy.config.openshift.io/cluster -o jsonpath='{.spec.noProxy}' 2>/dev/null)";
+                if [ -n "${OUT}" ]; then export NO_PROXY="${OUT}"; fi;
+                if [ "main" = "HEAD" ]; then BRANCH=""; else BRANCH="--branch main"; fi;
+                mkdir /git/{repo,home};
+                git clone --recurse-submodules --single-branch ${BRANCH} --depth 1 -- "${URL}" /git/repo;
+                chmod 0770 /git/{repo,home};
             - name: test
-              image: registry.redhat.io/ansible-automation-platform-23/ee-supported-rhel8:latest
+              image: registry.redhat.io/ansible-automation-platform-24/ee-supported-rhel9:latest
               imagePullPolicy: Always
               env:
                 - name: HOME
@@ -313,9 +523,17 @@ spec:
                 - name: values-volume
                   mountPath: /values/values.yaml
                   subPath: values.yaml
+                - mountPath: /var/run/kube-root-ca
+                  name: kube-root-ca
+                - mountPath: /var/run/trusted-ca
+                  name: trusted-ca-bundle
+                - mountPath: /var/run/trusted-hub
+                  name: trusted-hub-bundle
+                - mountPath: /tmp/ca-bundles
+                  name: ca-bundles
           containers:            
             - name: "done"
-              image: registry.redhat.io/ansible-automation-platform-23/ee-supported-rhel8:latest
+              image: registry.redhat.io/ansible-automation-platform-24/ee-supported-rhel9:latest
               imagePullPolicy: Always
               command:
                 - 'sh'
@@ -323,18 +541,31 @@ spec:
                 - 'echo'
                 - 'done'
                 - '\n'
-          volumes:
-          - name: git
-            emptyDir: {}
-          - name: values-volume
-            configMap:
-              name: helm-values-configmap-factory
+          volumes:            
+            - name: git
+              emptyDir: {}
+            - name: values-volume
+              configMap:
+                name: helm-values-configmap-factory
+            - configMap:
+                name: kube-root-ca.crt
+              name: kube-root-ca
+            - configMap:
+                name: trusted-ca-bundle
+                optional: true
+              name: trusted-ca-bundle
+            - configMap:
+                name: trusted-hub-bundle
+                optional: true
+              name: trusted-hub-bundle
+            - name: ca-bundles
+              emptyDir: {}
           restartPolicy: Never
 ---
-# Source: pattern-clustergroup/templates/core/subscriptions.yaml
+# Source: clustergroup/templates/core/subscriptions.yaml
 ---
 ---
-# Source: pattern-clustergroup/templates/plumbing/projects.yaml
+# Source: clustergroup/templates/plumbing/projects.yaml
 apiVersion: argoproj.io/v1alpha1
 kind: AppProject
 metadata:
@@ -355,12 +586,14 @@ spec:
   - '*'
 status: {}
 ---
-# Source: pattern-clustergroup/templates/plumbing/applications.yaml
+# Source: clustergroup/templates/plumbing/applications.yaml
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
   name: stormshift
   namespace: mypattern-factory
+  labels:
+    validatedpatterns.io/pattern: mypattern
   finalizers:
   - resources-finalizer.argocd.argoproj.io/foreground
 spec:
@@ -377,14 +610,17 @@ spec:
 }
   syncPolicy:
     automated: {}
-    #  selfHeal: true
+    retry:
+      limit: 20
 ---
-# Source: pattern-clustergroup/templates/plumbing/applications.yaml
+# Source: clustergroup/templates/plumbing/applications.yaml
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
   name: odh
   namespace: mypattern-factory
+  labels:
+    validatedpatterns.io/pattern: mypattern
   finalizers:
   - resources-finalizer.argocd.argoproj.io/foreground
 spec:
@@ -398,10 +634,15 @@ spec:
     path: charts/datacenter/opendatahub
     helm:
       ignoreMissingValueFiles: true
+      values: |
+        extraParametersNested:
       valueFiles:
       - "/values-global.yaml"
       - "/values-factory.yaml"
-      # Watch the progress of https://issues.redhat.com/browse/GITOPS-891 and update accordingly
+      - "/values-aws.yaml"
+      - "/values-aws-4.12.yaml"
+      - "/values-aws-factory.yaml"
+      - "/values-4.12-factory.yaml" 
       parameters:
         - name: global.repoURL
           value: $ARGOCD_APP_SOURCE_REPO_URL
@@ -414,19 +655,24 @@ spec:
         - name: global.clusterDomain
           value: region.example.com
         - name: global.clusterVersion
-          value: ""
+          value: "4.12"
         - name: global.clusterPlatform
-          value: ""
+          value: "aws"
         - name: global.hubClusterDomain
           value: apps.hub.example.com
         - name: global.localClusterDomain
           value: apps.region.example.com
+        - name: global.privateRepo
+          value: 
+        - name: global.experimentalCapabilities
+          value: 
   syncPolicy:
     automated: {}
-    #  selfHeal: true
+    retry:
+      limit: 20
 ---
-# Source: pattern-clustergroup/templates/plumbing/argocd.yaml
-apiVersion: argoproj.io/v1alpha1
+# Source: clustergroup/templates/plumbing/argocd.yaml
+apiVersion: argoproj.io/v1beta1
 kind: ArgoCD
 metadata:
   finalizers:
@@ -438,37 +684,31 @@ metadata:
   annotations:
     argocd.argoproj.io/compare-options: IgnoreExtraneous
 spec:
+# Adding health checks to argocd to prevent pvc resources
+# that aren't bound state from blocking deployments
+  resourceHealthChecks:
+  - kind: PersistentVolumeClaim
+    check: |
+      hs = {}
+      if obj.status ~= nil then
+        if obj.status.phase ~= nil then
+          if obj.status.phase == "Pending" then
+            hs.status = "Healthy"
+            hs.message = obj.status.phase
+            return hs
+          elseif obj.status.phase == "Bound" then
+            hs.status = "Healthy"
+            hs.message = obj.status.phase
+            return hs
+          end
+        end
+      end
+      hs.status = "Progressing"
+      hs.message = "Waiting for PVC"
+      return hs
+
+  resourceTrackingMethod: label
   applicationInstanceLabelKey: argocd.argoproj.io/instance
-  # Not the greatest way to pass git/quay info to sub-applications, but it will do until
-  # we can support helmChart with kustomize
-  # The other option is to pass them in as environment variables eg. BLUEPRINT_VERSION
-  configManagementPlugins: |
-    - name: kustomize-version
-      generate:
-        command: ["sh", "-c"]
-        args: ["kustomize version 1>&2 && exit 1"]
-    - name: kustomize-with-helm
-      generate:
-        command: ["kustomize"]
-        args: ["build", "--enable-helm"]
-    - name: helm-with-kustomize
-      init:
-        command: ["/bin/sh", "-c"]
-        args: ["helm dependency build"]
-      generate:
-        command: ["/bin/bash", "-c"]
-        args: ["helm template . --name-template ${ARGOCD_APP_NAME:0:52}
-            -f $(git rev-parse --show-toplevel)/values-global.yaml
-            -f $(git rev-parse --show-toplevel)/values-factory.yaml
-            --set global.repoURL=$ARGOCD_APP_SOURCE_REPO_URL
-            --set global.targetRevision=$ARGOCD_APP_SOURCE_TARGET_REVISION
-            --set global.namespace=$ARGOCD_APP_NAMESPACE
-            --set global.pattern=mypattern
-            --set global.clusterDomain=region.example.com
-            --set global.hubClusterDomain=apps.hub.example.com
-            --set global.localClusterDomain=apps.region.example.com
-            --set clusterGroup.name=factory
-            --post-renderer ./kustomize"]
   applicationSet:
     resources:
       limits:
@@ -486,19 +726,88 @@ spec:
       requests:
         cpu: 500m
         memory: 2Gi
-  dex:
-    openShiftOAuth: true
-    resources:
-      limits:
-        cpu: 500m
-        memory: 256Mi
-      requests:
-        cpu: 250m
-        memory: 128Mi
+  sso:
+    provider: dex
+    dex:
+      openShiftOAuth: true
+      resources:
+        limits:
+          cpu: 500m
+          memory: 256Mi
+        requests:
+          cpu: 250m
+          memory: 128Mi
   initialSSHKnownHosts: {}
   rbac:
     defaultPolicy: role:admin
   repo:
+    initContainers:
+    - command:
+      - bash
+      - -c
+      - cat /var/run/kube-root-ca/ca.crt /var/run/trusted-ca/ca-bundle.crt /var/run/trusted-hub/hub-kube-root-ca.crt > /tmp/ca-bundles/ca-bundle.crt || true
+      image: registry.redhat.io/ansible-automation-platform-24/ee-supported-rhel9:latest
+      name: fetch-ca
+      resources: {}
+      volumeMounts:
+      - mountPath: /var/run/kube-root-ca
+        name: kube-root-ca
+      - mountPath: /var/run/trusted-ca
+        name: trusted-ca-bundle
+      - mountPath: /var/run/trusted-hub
+        name: trusted-hub-bundle
+      - mountPath: /tmp/ca-bundles
+        name: ca-bundles
+    resources:
+      limits:
+        cpu: "1"
+        memory: 1Gi
+      requests:
+        cpu: 250m
+        memory: 256Mi
+    volumeMounts:
+    - mountPath: /etc/pki/tls/certs
+      name: ca-bundles
+    volumes:
+    - configMap:
+        name: kube-root-ca.crt
+      name: kube-root-ca
+    - configMap:
+        name: trusted-ca-bundle
+        optional: true
+      name: trusted-ca-bundle
+    - configMap:
+        name: trusted-hub-bundle
+        optional: true
+      name: trusted-hub-bundle
+    - emptyDir: {}
+      name: ca-bundles
+    sidecarContainers:
+      - name: helm-with-kustomize
+        command: [/var/run/argocd/argocd-cmp-server]
+        args: [
+  "--loglevel=debug"
+]
+        image: quay.io/hybridcloudpatterns/utility-container:latest
+        imagePullPolicy: Always
+        securityContext:
+          runAsNonRoot: true
+        volumeMounts:
+          - mountPath: /var/run/argocd
+            name: var-files
+          - mountPath: /home/argocd/cmp-server/plugins
+            name: plugins
+          - mountPath: /tmp
+            name: cmp-tmp
+          - mountPath: /home/argocd/cmp-server/config/plugin.yaml
+            subPath: plugin.yaml
+            name: helm-with-kustomize
+    volumes:
+      - emptyDir: {}
+        name: cmp-tmp
+      - configMap:
+          name: "argocd-cmp-helm-with-kustomize"
+        name: helm-with-kustomize
     resources:
       limits:
         cpu: "1"
@@ -506,7 +815,7 @@ spec:
       requests:
         cpu: 250m
         memory: 256Mi
-  resourceExclusions: |
+  resourceExclusions:  |
     - apiGroups:
       - tekton.dev
       kinds:
@@ -538,7 +847,7 @@ spec:
     ca: {}
 status:
 ---
-# Source: pattern-clustergroup/templates/plumbing/argocd.yaml
+# Source: clustergroup/templates/plumbing/argocd.yaml
 apiVersion: console.openshift.io/v1
 kind: ConsoleLink
 metadata:
@@ -552,7 +861,7 @@ spec:
   location: ApplicationMenu
   text: 'Factory ArgoCD'
 ---
-# Source: pattern-clustergroup/templates/core/operatorgroup.yaml
+# Source: clustergroup/templates/core/operatorgroup.yaml
 apiVersion: operators.coreos.com/v1
 kind: OperatorGroup
 metadata:
@@ -562,7 +871,8 @@ spec:
   targetNamespaces:
   - manuela-stormshift-line-dashboard
 ---
-# Source: pattern-clustergroup/templates/core/operatorgroup.yaml
+# Source: clustergroup/templates/core/operatorgroup.yaml
+---
 apiVersion: operators.coreos.com/v1
 kind: OperatorGroup
 metadata:
@@ -572,7 +882,8 @@ spec:
   targetNamespaces:
   - manuela-stormshift-machine-sensor
 ---
-# Source: pattern-clustergroup/templates/core/operatorgroup.yaml
+# Source: clustergroup/templates/core/operatorgroup.yaml
+---
 apiVersion: operators.coreos.com/v1
 kind: OperatorGroup
 metadata:
@@ -582,7 +893,7 @@ spec:
   targetNamespaces:
   - manuela-stormshift-messaging
 ---
-# Source: pattern-clustergroup/templates/core/subscriptions.yaml
+# Source: clustergroup/templates/core/subscriptions.yaml
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
 metadata:
@@ -595,7 +906,7 @@ spec:
   channel: stable
   installPlanApproval: Automatic
 ---
-# Source: pattern-clustergroup/templates/core/subscriptions.yaml
+# Source: clustergroup/templates/core/subscriptions.yaml
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
 metadata:
@@ -608,7 +919,7 @@ spec:
   channel: stable
   installPlanApproval: Automatic
 ---
-# Source: pattern-clustergroup/templates/core/subscriptions.yaml
+# Source: clustergroup/templates/core/subscriptions.yaml
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
 metadata:
@@ -621,7 +932,7 @@ spec:
   channel: stable
   installPlanApproval: Automatic
 ---
-# Source: pattern-clustergroup/templates/core/subscriptions.yaml
+# Source: clustergroup/templates/core/subscriptions.yaml
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
 metadata:
@@ -634,7 +945,7 @@ spec:
   channel: 7.x
   installPlanApproval: Automatic
 ---
-# Source: pattern-clustergroup/templates/core/subscriptions.yaml
+# Source: clustergroup/templates/core/subscriptions.yaml
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
 metadata:

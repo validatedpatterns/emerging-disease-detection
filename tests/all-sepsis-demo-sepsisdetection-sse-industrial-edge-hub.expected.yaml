@@ -50,7 +50,6 @@ items:
                   ######    messaging     #######
                   kafka.bootstrap.servers=kafka-cluster-kafka-bootstrap.sepsis-demo.svc.cluster.local:9092
                   ###############################
-                  
             
 
     - apiVersion: image.openshift.io/v1
