@@ -94,6 +94,8 @@ items:
       labels:
         app: {{ .Values.rhpam.psql_app_name }}
         app.kubernetes.io/part-of: datatier
+      annotations:
+        argocd.argoproj.io/sync-wave: "25"
     spec:
       strategy:
         recreateParams:

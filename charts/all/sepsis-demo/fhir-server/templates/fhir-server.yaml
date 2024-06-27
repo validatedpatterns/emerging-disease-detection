@@ -70,7 +70,9 @@ items:
     metadata:
        name: {{ .Values.fhirserver.applicationname }}
        labels:
-            app: {{.Values.fhirserver.applicationname}}
+         app: {{.Values.fhirserver.applicationname}}
+       annotations:
+         argocd.argoproj.io/sync-wave: "50"
     spec:
       triggers:
         - type: ConfigChange
