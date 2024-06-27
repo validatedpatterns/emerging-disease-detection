@@ -1,11 +1,11 @@
 letsencrypt:
 # region can be the empty string unless AccessKeyID and SecretAccessKeyID are not set (which we ensure is never true)
 # Otherwise, set to the region of the cluster, eg. us-east-1
-  # region: us-east-2
+   region: us-east-2
   # server: https://acme-v02.api.letsencrypt.org/directory
   # staging URL
-  # server: https://acme-staging-v02.api.letsencrypt.org/directory
-  # email: team-vp@ragtagrobot.com
+   server: https://acme-staging-v02.api.letsencrypt.org/directory
+   email: team-vp@ragtagrobot.com
 
 clusterGroup:
   applications:
