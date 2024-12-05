@@ -32,7 +32,8 @@ clusterGroup:
       name: vault
       namespace: vault
       project: hub
-      path: common/hashicorp-vault
+      chart: hashicorp-vault
+      chartVersion: 0.1.*
 
     sso:
       name: sso
@@ -160,11 +161,12 @@ clusterGroup:
         jqPathExpressions:
         - '.spec.template.spec.containers[].image'
 
-    secrets-operator:
+    golang-external-secrets:
       name: golang-external-secrets
       namespace: golang-external-secrets
       project: hub
-      path: common/golang-external-secrets
+      chart: golang-external-secrets
+      chartVersion: 0.1.*
 
   imperative:
     # NOTE: We *must* use lists and not hashes. As hashes lose ordering once parsed by helm

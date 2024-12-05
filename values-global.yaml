@@ -1,7 +1,6 @@
 ---
 global:
   pattern: emerging-disease-detection
-  hubClusterDomain: "AUTO" # this is for test only This value is automatically fetched when Invoking against a cluster
 
   options:
     useCSV: false
@@ -10,3 +9,6 @@ global:
 
 main:
   clusterGroupName: hub
+  multiSourceConfig:
+    enabled: true
+    clusterGroupChartVersion: 0.9.*
