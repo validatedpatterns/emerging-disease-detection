@@ -16,9 +16,6 @@ project_name: "{{ project_admin }}-sepsisdetection"
 
 sepsisui_namespace: sepsis-demo
 
-
-
-
 # Namespace where SSO will be installed
 namespace_sso: sepsis-demo
 
@@ -29,11 +26,11 @@ set_realm_admin_as_default: false
 
 sso_realm_id: "{{ project_admin }}-sepsis"
 
-sso_clientId: sepsisdetection
-
+sso_client_id: sepsisdetection
 
 # The following two options are allowed:
-#   image  : Use if a container image of your application is already available from a public container image repo:  ie:  quay.io , registry.redhat.io or docker hub
+#   image  : Use if a container image of your application is already available
+#            from a public container image repo: quay.io, registry.redhat.io or docker hub
 #   source : Use if this ansible includes tasks to deploy a Jenkins or Tekton BuildConfig that creates the application image from source code
 deploy_from: image
 
@@ -42,7 +39,6 @@ kafka_debezium_table_whitelist: public.hfj_res_ver
 
 # Topic that Debezium will stream to and triggers BPM process
 kafka_debezium_topic: "{{ kafka_debezium_db_server_name }}.{{ kafka_debezium_table_whitelist }}"
-
 
 fhir_server_application_name: fhir-server
 sepsisdetection_rhpam_app_name: sepsisdetection-rhpam
@@ -53,7 +49,6 @@ sepsisdetection_rhpam_process_id: sepsisdetection
 
 namespace_knativeserving: knative-serving
 namespace_knativeeventing: knative-eventing
-
 
 sepsis_detection_ml_app_name: sepsis-detection
 

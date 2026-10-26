@@ -1,6 +1,7 @@
 ---
 global:
   pattern: emerging-disease-detection
+  singleArgoCD: true
 
   options:
     useCSV: false
@@ -8,7 +9,7 @@ global:
     installPlanApproval: Automatic
 
 main:
-  clusterGroupName: hub
+  variant: hub
   multiSourceConfig:
     enabled: true
     clusterGroupChartVersion: 0.9.*
