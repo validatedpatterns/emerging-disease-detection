@@ -1,0 +1,32 @@
+---
+metadata_version: "1.0"
+name: emerging-disease-detection
+description: This pattern deploys a sepsis early warning system driven by clinical AI at the edge
+pattern_version: "1.0"
+display_name: Emerging Disease Detection
+repo_url: https://github.com/validatedpatterns/emerging-disease-detection
+docs_repo_url: https://github.com/validatedpatterns/docs
+issues_url: https://github.com/validatedpatterns/emerging-disease-detection/issues
+docs_url: https://validatedpatterns.io/patterns/emerging-disease-detection/
+ci_url: https://validatedpatterns.io/ci/?pattern=emerging-disease-detection
+# can be sandbox, tested or maintained
+tier: sandbox
+owners: dminnear-rh
+requirements:
+  hub:
+    compute:
+      platform:
+        aws:
+          replicas: 3
+          type: m5.2xlarge
+    controlPlane:
+      platform:
+        aws:
+          replicas: 3
+          type: m5.xlarge
+
+extra_features:
+  hypershift_support: true
+  spoke_support: false
+
+external_requirements:

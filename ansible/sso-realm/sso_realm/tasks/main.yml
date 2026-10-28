@@ -1,140 +1,132 @@
 ---
-
-- name: Verify Collection is available
-  shell: ansible-galaxy collection list
-  register: result
-- debug:
-    msg: "Shell output : {{result}}"
-
-- name: wait for sso to be ready
+- name: Wait for SSO StatefulSet to be ready
   kubernetes.core.k8s_info:
-    kind: Statefulset
+    api_version: apps/v1
+    kind: StatefulSet
     name: keycloak
     namespace: "{{ namespace_sso }}"
-    wait_sleep: 10
-    wait_timeout: 90
-
-
-# https://github.com/Emergency-Response-Demo/install/issues/71
-- name: "Define random value for variable siteadmin_role_id "
-  set_fact:
-    siteadmin_role_id: "{{ lookup('password', '/dev/null chars=ascii_letters length=32') }}"
-
-- name: "wait for sso statefulset to be ready in {{ namespace_sso }}"
-  shell: "{{ openshift_cli }} get statefulset/keycloak -o jsonpath='{.status.readyReplicas}' -n {{ namespace_sso }}"
-  register: result
-  until: result.stdout == '1'
+  register: sso_statefulset
+  until:
+    - sso_statefulset.resources | length > 0
+    - sso_statefulset.resources[0].status.readyReplicas | default(0) | int >= 1
   retries: 50
   delay: 10
-  changed_when: False
 
-- name: retrieve sso route
-  shell: "{{ openshift_cli }} get route sso -o jsonpath='{.spec.host}' -n {{ namespace_sso }}"
-  register: sso_route_cmd
+- name: Retrieve SSO route
+  kubernetes.core.k8s_info:
+    api_version: route.openshift.io/v1
+    kind: Route
+    name: sso
+    namespace: "{{ namespace_sso }}"
+  register: sso_route
 
-- name: get sso admin credentials secret
+- name: Retrieve UI route
+  kubernetes.core.k8s_info:
+    api_version: route.openshift.io/v1
+    kind: Route
+    name: "{{ sepsisdetection_ui_app_name }}"
+    namespace: "{{ sepsisui_namespace }}"
+  register: sepsis_ui_route
+  until: sepsis_ui_route.resources | length > 0
+  retries: 30
+  delay: 5
+
+- name: Get SSO admin credentials
   kubernetes.core.k8s_info:
     kind: Secret
     namespace: "{{ namespace_sso }}"
     name: "{{ sso_admin_credentials_secret }}"
   register: sso_admin_credentials
+  no_log: true
 
-- set_fact:
-    sso_admin_user: "{{ sso_admin_credentials.resources[0].data.ADMIN_USERNAME  | b64decode }}"
+- name: Set SSO connection details
+  ansible.builtin.set_fact:
+    sso_admin_user: "{{ sso_admin_credentials.resources[0].data.ADMIN_USERNAME | b64decode }}"
     sso_admin_password: "{{ sso_admin_credentials.resources[0].data.ADMIN_PASSWORD | b64decode }}"
-    sso_url: "https://{{ sso_route_cmd.stdout }}"
-    sepsis_ui_route_url: "https://{{ sepsisdetection_ui_app_name }}-{{ sepsisui_namespace }}.{{ ocp_domain }}"
-- debug:
-    msg: "sso_admin_user = {{ sso_admin_user }}  ;  sso_admin_password = {{ sso_admin_password }}"
+    sso_url: "https://{{ sso_route.resources[0].spec.host }}"
+    sepsis_ui_route_url: "https://{{ sepsis_ui_route.resources[0].spec.host }}"
+  no_log: true
 
-
-- name: get admin token
-  uri:
+- name: Get admin token
+  ansible.builtin.uri:
     url: "{{ sso_url }}/auth/realms/master/protocol/openid-connect/token"
     method: POST
-    headers:
-      Content-Type: application/x-www-form-urlencoded
-    body: "username={{ sso_admin_user }}&password={{ sso_admin_password }}&grant_type=password&client_id=admin-cli"
+    body_format: form-urlencoded
+    body:
+      username: "{{ sso_admin_user }}"
+      password: "{{ sso_admin_password }}"
+      grant_type: password
+      client_id: admin-cli
     status_code: 200
-    validate_certs: no
+    validate_certs: false
   register: admin_token_result
+  until: admin_token_result.status == 200
+  retries: 15
+  delay: 5
+  no_log: true
 
-- debug:
-    msg: "Admin token : {{admin_token_result}}"
+- name: Set admin token
+  ansible.builtin.set_fact:
+    admin_token: "{{ admin_token_result.json.access_token }}"
+  no_log: true
 
-- name: set admin token fact
-  set_fact:
-    admin_token: "{{ admin_token_result | json_query('json.access_token') }}"
-
-- name: check if {{ sso_realm_id }} exists
-  uri:
+- name: Check whether realm exists
+  ansible.builtin.uri:
     url: "{{ sso_url }}/auth/admin/realms/{{ sso_realm_id }}"
     method: GET
     headers:
-      Authorization: Bearer {{ admin_token }}
-    status_code: 200,404
-    validate_certs: no
-  register: result
+      Authorization: "Bearer {{ admin_token }}"
+    status_code: [200, 404]
+    validate_certs: false
+  register: sso_realm_result
   changed_when: false
+  no_log: true
 
-
-- name: create {{ sso_realm_id }} realm
-  uri:
+- name: Create missing realm
+  ansible.builtin.uri:
     url: "{{ sso_url }}/auth/admin/realms"
     method: POST
     headers:
-      Authorization: Bearer {{ admin_token }}
-      Content-Type: application/json
-    body: "{{ lookup('template', '../templates/realm.json') }}"
+      Authorization: "Bearer {{ admin_token }}"
+    body: "{{ lookup('ansible.builtin.template', playbook_dir + '/sso_realm/templates/realm.json') }}"
     body_format: json
     status_code: 201
-    validate_certs: no
-  when: result.status == 404
+    validate_certs: false
+  when: sso_realm_result.status == 404
+  changed_when: true
+  no_log: true
 
-- name: get rhsso realm certs
-  uri:
+- name: Verify realm discovery endpoint
+  ansible.builtin.uri:
+    url: "{{ sso_url }}/auth/realms/{{ sso_realm_id }}/.well-known/openid-configuration"
+    status_code: 200
+    validate_certs: false
+  register: sso_discovery
+  until: sso_discovery.status == 200
+  retries: 10
+  delay: 5
+  changed_when: false
+
+- name: Get realm signing certificates
+  ansible.builtin.uri:
     url: "{{ sso_url }}/auth/realms/{{ sso_realm_id }}/protocol/openid-connect/certs"
     validate_certs: false
     return_content: true
   register: sso_realm_certs
   changed_when: false
 
-- name: extract sso realm cert modulus
-  shell: echo "{{ sso_realm_certs.content|from_json|json_query(json_query) }}" | sed s/-/+/g | sed s/_/\\//g
-  vars:
-    json_query: keys[?kty=='RSA']|[0].n
-  register: sso_realm_certs_modulus
+- name: Extract realm signing public key
+  ansible.builtin.command: openssl x509 -pubkey -noout
+  args:
+    stdin: |
+      -----BEGIN CERTIFICATE-----
+      {{ (sso_realm_certs.json['keys'] | selectattr('kty', 'equalto', 'RSA') | selectattr('use', 'equalto', 'sig') | first).x5c[0] }}
+      -----END CERTIFICATE-----
+  register: sso_public_key
+  changed_when: false
 
-- name: extract sso realm cert exponent
-  shell: echo "{{ sso_realm_certs.content|from_json|json_query(json_query) }}"
-  vars:
-    json_query: keys[?kty=='RSA']|[0].e
-  register: sso_realm_certs_exponent
-
-- name: extract sso realm public key
-  shell: |
-    echo {{ sso_realm_certs_exponent.stdout }} | base64 -d > {{ work_dir }}/exponent.bin
-    echo '02 03' | xxd -r -p > {{ work_dir }}/mid-header.bin
-    echo 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA' | base64 -d > {{ work_dir }}/header.bin
-    _m={{ sso_realm_certs_modulus.stdout }}
-    _l={{ shell1 }}
-    if [ $_l -eq 2 ]; then _s="$_m"'=='
-    elif [ $_l -eq 3 ]; then _s="$_m"'='
-    else _s="$_m" ; fi
-    echo $_s | base64 -d > {{ work_dir }}/modulus.bin
-    cat {{ work_dir }}/header.bin {{ work_dir }}/modulus.bin {{ work_dir }}/mid-header.bin {{ work_dir }}/exponent.bin > {{ work_dir }}/key.der
-    openssl pkey -inform der -outform pem -pubin -in {{ work_dir }}/key.der -out {{ work_dir }}/key.pem
-    echo $(cat {{ work_dir }}/key.pem | tr -d "\n" | sed 's/-----BEGIN PUBLIC KEY-----//' | sed 's/-----END PUBLIC KEY-----//' ) > {{ work_dir }}/sso_public_key.txt
-    rm {{ work_dir }}/*.bin {{ work_dir }}/*.der {{ work_dir }}/*.pem
-  vars:
-    shell1: !unsafe "$((${#_m} % 4))"
-  register: result_sso_realm_certs_exponent   
-
-- debug:
-    msg: "result_sso_realm_certs_exponent : {{result_sso_realm_certs_exponent}}"
-
-- name: create client configmap
-  k8s:
+- name: Create client configuration
+  kubernetes.core.k8s:
     state: present
     namespace: "{{ namespace_sso }}"
     definition:
@@ -145,7 +137,6 @@
       data:
         AUTH_URL: "{{ sso_url }}/auth"
         KEYCLOAK: "true"
-        PUBLIC_KEY: "{{ lookup('file', work_dir + '/sso_public_key.txt') }}"
+        PUBLIC_KEY: "{{ sso_public_key.stdout_lines[1:-1] | join('') }}"
         REALM: "{{ sso_realm_id }}"
-        CLIENTID: "{{ sso_clientId }}"
-
+        CLIENTID: "{{ sso_client_id }}"

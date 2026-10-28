@@ -1,0 +1,160 @@
+---
+clusterGroup:
+  name: hub
+
+  namespaces:
+    vault:
+    external-secrets-operator:
+      operatorGroup: true
+      targetNamespaces: []
+    external-secrets:
+    sepsis-demo:
+    openshift-serverless:
+
+  subscriptions:
+    eso:
+      name: openshift-external-secrets-operator
+      namespace: external-secrets-operator
+      channel: stable-v1
+    amqstreams:
+      name: amq-streams
+      namespace: sepsis-demo
+    serverlessoperator:
+      name: serverless-operator
+    rhsso-operator:
+      name: rhsso-operator
+      namespace: sepsis-demo
+
+  applications:
+    vault:
+      name: vault
+      namespace: vault
+      chart: hashicorp-vault
+      chartVersion: 0.1.*
+
+    openshift-external-secrets:
+      name: openshift-external-secrets
+      namespace: external-secrets
+      chart: openshift-external-secrets
+      chartVersion: 0.0.*
+
+    sso:
+      name: sso
+      namespace: sepsis-demo
+      path: charts/sso
+      # ignoreDifferences:
+      #  - group: apps.openshift.io
+      #    kind: DeploymentConfig
+      #    jqPathExpressions:
+      #     - '.spec.template.spec.containers[].image'
+
+    kafka-cluster:
+      name: kafka-cluster
+      namespace: sepsis-demo
+      path: charts/kafka-cluster
+      # ignoreDifferences:
+      #  - group: apps.openshift.io
+      #    kind: DeploymentConfig
+      #    jqPathExpressions:
+      #     - '.spec.template.spec.containers[].image'
+
+    fhir:
+      name: fhir
+      namespace: sepsis-demo
+      path: charts/fhir-server
+      ignoreDifferences:
+        - group: apps.openshift.io
+          kind: DeploymentConfig
+          jqPathExpressions:
+            - ".spec.template.spec.containers[].image"
+
+    debezium:
+      name: debezium
+      namespace: sepsis-demo
+      path: charts/debezium
+      # ignoreDifferences:
+      # - group: apps.openshift.io
+      #   kind: DeploymentConfig
+      #   jqPathExpressions:
+      #   - '.spec.template.spec.containers[].image'
+
+    kafdrop:
+      name: kafdrop
+      namespace: sepsis-demo
+      path: charts/kafdrop
+      ignoreDifferences:
+        - group: apps.openshift.io
+          kind: DeploymentConfig
+          jqPathExpressions:
+            - ".spec.template.spec.containers[].image"
+
+    knative-sepsis:
+      name: knative-sepsis
+      namespace: sepsis-demo
+      path: charts/knative
+      # ignoreDifferences:
+      # - group: apps.openshift.io
+      #   kind: DeploymentConfig
+      #   jqPathExpressions:
+      #   - '.spec.template.spec.containers[].image'
+
+    sepsisdetection-risk:
+      name: sepsisdetection-risk
+      namespace: sepsis-demo
+      path: charts/sepsisdetection-risk
+      # ignoreDifferences:
+      # - group: apps.openshift.io
+      #   kind: DeploymentConfig
+      #   jqPathExpressions:
+      #   - '.spec.template.spec.containers[].image'
+
+    sepsisdetection-sse:
+      name: sepsisdetection-sse
+      namespace: sepsis-demo
+      path: charts/sepsisdetection-sse
+      # ignoreDifferences:
+      # - group: apps.openshift.io
+      #   kind: DeploymentConfig
+      #   jqPathExpressions:
+      #   - '.spec.template.spec.containers[].image'
+
+    sepsisdetection-ml:
+      name: sepsisdetection-ml
+      namespace: sepsis-demo
+      path: charts/sepsisdetection-ml
+      # syncPolicy:
+      #   automated: {}
+      #   syncOptions:
+      #      - Prune=false
+      # ignoreDifferences:
+      # - group: apps.openshift.io
+      #   kind: DeploymentConfig
+      #   jqPathExpressions:
+      #   - '.spec.template.spec.containers[].image'
+
+    rhpam:
+      name: rhpam
+      namespace: sepsis-demo
+      path: charts/rhpam
+      ignoreDifferences:
+        - group: apps.openshift.io
+          kind: DeploymentConfig
+          jqPathExpressions:
+            - ".spec.template.spec.containers[].image"
+            - ".spec.triggers[].imageChangeParams.lastTriggeredImage"
+
+    sepsisdetection-ui:
+      name: sepsisdetection-ui
+      namespace: sepsis-demo
+      path: charts/sepsisdetection-ui
+      ignoreDifferences:
+        - group: apps.openshift.io
+          kind: DeploymentConfig
+          jqPathExpressions:
+            - ".spec.template.spec.containers[].image"
+
+  imperative:
+    jobs:
+      - name: sso-realm
+        playbook: ansible/sso-realm/sso-realm.yaml
+        timeout: 900

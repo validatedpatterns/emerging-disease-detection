@@ -3,7 +3,7 @@
 *.swo
 values-secret*
 .*.expected.yaml
-pattern-vault.init
-vault.init
 super-linter.log
-common/pattern-vault.init
+tests/ci/__pycache__
+tests/ci/.pytest_cache
+tests/ci/.results

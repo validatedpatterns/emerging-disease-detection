@@ -1,0 +1,30 @@
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaNodePool
+metadata:
+  name: kafka
+  namespace: {{ .Values.project_name }}
+  labels:
+    strimzi.io/cluster: {{ .Values.kafka_cluster }}
+spec:
+  replicas: {{ .Values.kafka.replicas }}
+  # The demo uses three combined broker/controller nodes for its KRaft quorum.
+  roles:
+    - controller
+    - broker
+  resources:
+    requests:
+      cpu: {{ .Values.kafka.requests.cpu | quote }}
+      memory: {{ .Values.kafka.requests.memory | quote }}
+    limits:
+      cpu: {{ .Values.kafka.limits.cpu | quote }}
+      memory: {{ .Values.kafka.limits.memory | quote }}
+  storage:
+    {{- if eq .Values.kafka.storage_type "persistent" }}
+    type: persistent-claim
+    size: {{ .Values.kafka.volume_capacity }}
+    deleteClaim: {{ .Values.kafka.delete_claim }}
+    {{- else if eq .Values.kafka.storage_type "ephemeral" }}
+    type: ephemeral
+    {{- else }}
+    {{- fail "kafka.storage_type must be persistent or ephemeral" }}
+    {{- end }}
